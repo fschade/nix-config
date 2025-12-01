@@ -1,0 +1,13 @@
+# os files
+.DS_Store
+
+# editors
+.idea/
+*.iml
+
+# temporary files
+tmp/
+*.tmp
+
+# other
+node_modules/

@@ -1,0 +1,5 @@
+.idea
+*.iml
+result
+result/
+.DS_Store
