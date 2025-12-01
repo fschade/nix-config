@@ -1,0 +1,26 @@
+[tasks.deploy]
+description = "Build + switch this machine's config (override target as arg)"
+usage = 'arg "<target>" default="@self"'
+raw = true                                                                    # nh/nom needs a real TTY for live output + sudo prompt; without it mise pipes stdout and you get silence
+run = "./scripts/deploy.sh"
+
+[tasks.rollback]
+description = "Roll back to the previous generation"
+raw = true                                           # interactive sudo prompt needs a real TTY
+run = "./scripts/rollback.sh"
+
+[tasks.check]
+description = "Run all static gates in check mode (what CI runs)"
+run = "./scripts/check.sh"
+
+[tasks.fmt]
+description = "Format all nix files"
+run = "alejandra --quiet ."
+
+[tasks.apps]
+description = "List the apps/CLIs you declared (nix packages + brew casks)"
+run = "./scripts/apps.sh"
+
+[tasks.claude-hooks-test]
+description = "Regression tests for the claude code guard hooks"
+run = "./home/cli/claude/hooks/run-tests.sh"

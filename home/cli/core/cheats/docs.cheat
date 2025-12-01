@@ -1,0 +1,16 @@
+% docs, help
+
+# Quick offline examples for a command (tldr)
+tldr <command>
+
+# Community docs / wiki for a command (cht.sh, online)
+cht.sh <command>
+
+# Ask a question about a command (cht.sh)
+cht.sh <command> <question>
+
+# Full manual page
+man <command>
+
+# What is this command + where does it live
+type -a <command>

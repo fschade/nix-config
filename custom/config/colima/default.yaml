@@ -1,0 +1,25 @@
+# Colima resource defaults for *new* instances (wired in home/cli/dev.nix as a
+# read-only symlink). Applies to a fresh `colima start`; for the current VM,
+# recreate (`colima delete && colima start`) or `colima stop && colima start
+# --cpu 4 --memory 8` once. Managed here → don't use `colima template`.
+runtime: docker
+vmType: vz
+mountType: virtiofs
+cpu: 8
+memory: 8
+disk: 100
+# Scope the writable mount to the dev root instead of all of $HOME.
+# Colima's default (`mounts: []`) makes the *entire* home writable, which
+# (a) lets any container write to ~/.ssh, ~/.aws, ~/.config, and
+# (b) points inotify at all of $HOME → fseventsd runaway (RAM/CPU).
+#   see https://github.com/abiosoft/colima/issues/1569
+# Everything under ~/Developer is writable; the rest of home stays out.
+mounts:
+  - location: ~/Developer
+    writable: true
+# ~/Developer is a large tree; propagating host inotify events for all of it
+# makes fseventsd burn RAM/CPU (same issue #1569). Turn it off — I/O over
+# virtiofs stays fast regardless. Trade-off: in-container file watchers won't
+# see host edits via inotify, so hot-reload needs polling
+# (e.g. CHOKIDAR_USEPOLLING=1). Set explicitly since the CLI default is true.
+mountInotify: false

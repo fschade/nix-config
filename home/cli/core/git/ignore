@@ -1,0 +1,32 @@
+# Global gitignore ~/.config/git/ignore
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# editors / IDEs
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.netrwhist
+
+# AI / agent tooling — local junk, never belongs in a repo
+.claude/settings.local.json
+
+# direnv / nix
+.direnv/
+result
+result-*
+
+# noise / temp
+tmp/
+*.tmp
+*.log
+node_modules/

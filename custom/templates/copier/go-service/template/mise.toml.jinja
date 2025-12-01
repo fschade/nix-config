@@ -1,0 +1,22 @@
+# mise is the ONLY prerequisite for this project — it provides every tool, so
+# contributors don't need nix/homebrew/etc. `mise install` sets them all up.
+[tools]
+go = "{{ go_version }}"
+lefthook = "latest"
+"ubi:crate-ci/committed" = "latest" # commit-msg hook linter
+
+[tasks.test]
+description = "Run tests"
+run = "go test ./..."
+
+[tasks.lint]
+description = "Vet the code"
+run = "go vet ./..."
+
+[tasks.build]
+description = "Build the binary into ./bin"
+run = "go build -o bin/{{ project_name }} ."
+
+[tasks.run]
+description = "Run the service"
+run = "go run ."

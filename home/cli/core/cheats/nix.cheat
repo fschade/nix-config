@@ -1,0 +1,16 @@
+% nix
+
+# Garbage-collect old generations & free disk
+nix-collect-garbage -d
+
+# Evaluate a flake output
+nix eval <flake>#<attr>
+
+# Update a single flake input
+nix flake lock --update-input <input>
+
+# Run a program from nixpkgs without installing
+nix run nixpkgs#<pkg>
+
+# Search nixpkgs
+nix search nixpkgs <query>

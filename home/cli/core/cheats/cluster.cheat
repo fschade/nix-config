@@ -1,0 +1,25 @@
+% cluster, kubernetes, k8s
+
+# List contexts (current is marked)
+kubectl config get-contexts
+
+# Switch context
+kubectl config use-context <context>
+
+# Pods across all namespaces, wide
+kubectl get pods -A -o wide
+
+# Describe a pod
+kubectl describe pod <pod>
+
+# Follow a pod's logs
+kubectl logs -f <pod>
+
+# Shell into a pod
+kubectl exec -it <pod> -- <shell>
+
+# Port-forward a service to localhost
+kubectl port-forward svc/<service> <localport>:<remoteport>
+
+# Resource usage by pod
+kubectl top pods -A

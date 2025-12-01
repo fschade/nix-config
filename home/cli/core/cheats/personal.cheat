@@ -1,0 +1,7 @@
+; Catch-all for one-off snippets tied to tools you rarely touch.
+; Domain snippets live in their own files: vcs, containers, cluster, network, nix.
+
+% personal
+
+# Pretty-print JSON from the clipboard (macOS)
+pbpaste | jq .

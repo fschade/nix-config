@@ -1,0 +1,6 @@
+# Conventional Commits — https://www.conventionalcommits.org
+# Read by lefthook's commit-msg hook locally and by crate-ci/committed in CI.
+style = "conventional"
+allowed_types = ["feat", "fix", "build", "ci", "test", "docs", "refactor", "perf", "style", "chore", "revert"]
+subject_capitalized = false
+subject_length = 72

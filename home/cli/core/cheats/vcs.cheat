@@ -1,0 +1,22 @@
+% vcs, git
+
+# Undo last commit, keep changes staged
+git reset --soft HEAD~1
+
+# Amend the last commit without editing the message
+git commit --amend --no-edit
+
+# Discard all local changes and match remote
+git reset --hard <remote>/<branch>
+
+# Delete local branches already merged & gone on remote
+git branch --merged | grep -vE '\*|main|master' | xargs -r git branch -d
+
+# Interactively rebase the last N commits
+git rebase -i HEAD~<n>
+
+# Show files changed in the last commit
+git show --stat
+
+$ remote: git remote
+$ branch: git branch --format '%(refname:short)'

@@ -1,0 +1,22 @@
+% containers, docker
+
+# Stop all running containers (no-op if none)
+docker ps -q | xargs -r docker stop
+
+# Remove all stopped containers
+docker container prune -f
+
+# Remove dangling images
+docker image prune -f
+
+# Full cleanup: stopped containers, networks, dangling images, build cache
+docker system prune -af
+
+# Shell into a running container
+docker exec -it <container> <shell>
+
+# Follow a container's logs
+docker logs -f <container>
+
+$ container: docker ps --format '{{.Names}}'
+$ shell: echo -e "bash\nsh\nash"

@@ -1,0 +1,20 @@
+; In-session keybindings are shown on-screen (status bar); these cover the CLI side.
+
+% zellij, multiplexer
+
+# Attach to a session, creating it if it doesn't exist
+zellij attach --create <name>
+
+# Attach to an existing session
+zellij attach <session>
+
+# List running sessions
+zellij list-sessions
+
+# Kill a running session
+zellij kill-session <session>
+
+# Kill all running sessions
+zellij kill-all-sessions
+
+$ session: zellij list-sessions --short 2>/dev/null
