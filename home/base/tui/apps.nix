@@ -4,11 +4,9 @@
     lazydocker # Docker terminal UI.
     tokei # count lines of code, alternative to cloc
     alejandra
+    buildifier # bazel tools, used to check starlark
 
     # db related
-    mycli
-    pgcli
-    mongosh
     sqlite
 
     # misc

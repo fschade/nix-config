@@ -15,9 +15,6 @@
     # misc
     cowsay
     caddy # A webserver with automatic HTTPS via Let's Encrypt(replacement of nginx)
-    # A fast and polyglot tool for code searching, linting, rewriting at large scale
-    # supported languages: only some mainstream languages currently(do not support nix/nginx/yaml/toml/...)
-    ast-grep
 
     # other core cli tools are installed at system-level
   ];

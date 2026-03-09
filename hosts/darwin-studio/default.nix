@@ -7,7 +7,6 @@ in {
 
   homebrew = {
     casks = [
-      "dotnet-sdk6-0-400"
       "fujitsu-scansnap-home"
       "whatsapp"
       "ticktick"
@@ -18,7 +17,6 @@ in {
     };
 
     taps = [
-      "isen-ng/homebrew-dotnet-sdk-versions"
     ];
   };
 }

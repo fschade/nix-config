@@ -49,9 +49,11 @@
 
     taps = [
       "nikitabobko/tap"
+      "sozercan/repo" # kaset
     ];
 
     brews = [
+      "mole" # deep clean and optimize your Mac.
     ];
 
     casks = [
@@ -61,6 +63,7 @@
       "raycast"
       "betterdisplay"
       "itsycal"
+      "via" # keyboard configurator
 
       ## dev
       "docker-desktop"
@@ -85,6 +88,7 @@
       "rode-central"
       "rode-virtual-channels"
       "appcleaner"
+      "sozercan/repo/kaset" # yt-music
     ];
   };
 }
