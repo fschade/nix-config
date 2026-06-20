@@ -1,50 +1,57 @@
-# My System Configuration
+# Nix Config
 
-This repository contains my **Nix conf for configuring and managing all of my machines**.
-It defines system settings, installed packages, development environments,
-and various tools—allowing every machine to be reproducible, declarative, and easy to redeploy.
+Declarative config for my macOS and Linux machines.
 
-The goal is to have a single source of truth for my entire setup, so any system can be rebuilt consistently from
-scratch.
+<p align="center">
+  <img src="assets/yoshi.gif" width="300" alt="Yoshi the dog, captioned 'my home'" />
+  <br><em>home-manager takes care of <code>$HOME</code>. Yoshi takes care of home.</em>
+</p>
 
----
+## Setup
 
-## How to Deploy
+**macOS** (whole machine, nix-darwin):
 
 ```bash
-# If you are deploying for the first time,
-# 1. install nix (https://docs.determinate.systems/)
-# 2. install homebrew if needed (https://brew.sh/)
-# 3. prepare the deployment environment with essential packages available
-nix-shell -p just
-
-# Deploy the configuration matched by hostname
-just local
-
-# Deploy with detailed logs
-just local debug
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+sudo nix run nix-darwin -- switch --flake .#$HOST
 ```
 
-As the repository grows, additional deployment targets for different platforms or host types will be added.
+**Linux** (home-manager):
 
----
+```bash
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+nix run home-manager/master -- switch -b backup --flake .#$USER@$HOST
+```
 
-## Acknowledgements
+## Commands
 
-### Configuration Inspiration
+```bash
+mise run deploy [target]   # build + switch (default: this machine)
+mise run rollback          # previous generation
+mise run check             # fmt + lint + secret gates (what CI runs)
+mise run fmt               # format nix files
+```
 
-This setup draws inspiration from various excellent Nix configuration repositories shared by the community.
-Special thanks to:
+`deploy` routes by target: `user@host` → home-manager, bare name → nix-darwin.
+Deploy any config explicitly, e.g. `mise run deploy fschade@darwin-default`.
 
-* [ryan4yin/nix-config](https://github.com/ryan4yin/nix-config/tree/main)
+## Dev
 
-Thank you for sharing your work and ideas!
+```bash
+direnv allow   # or: nix develop
+```
 
-### Tooling
+Loads the toolchain (mise + gate tools) and installs git hooks. CI runs the same shell.
 
-Many thanks to the developers and maintainers of the tools that make reproducible systems possible:
+## Thanks
 
-* [Nix](https://github.com/NixOS/nix)
-* [nix-darwin](https://github.com/LnL7/nix-darwin)
-* [home-manager](https://github.com/nix-community/home-manager)
-* [Determinate Systems Nix installer](https://github.com/DeterminateSystems/nix-installer)
+Standing on the shoulders of giants!
+
+- [Nix](https://github.com/NixOS/nix)
+- [nix-darwin](https://github.com/nix-darwin/nix-darwin)
+- [home-manager](https://github.com/nix-community/home-manager)
+- [Determinate Nix](https://docs.determinate.systems/)
+- [ryan4yin/nix-config](https://github.com/ryan4yin/nix-config)
+
+Huge thanks to everyone who builds and shares this stuff. 🐶

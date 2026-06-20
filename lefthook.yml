@@ -1,0 +1,5 @@
+# The gate is defined once in mise (`mise run check`); the hook just runs it.
+pre-commit:
+  commands:
+    check:
+      run: mise run check

@@ -1,7 +1,11 @@
-{my, ...}: {
-  imports =
-    (my.lib.scanPaths ./.)
-    ++ [
-      ../base
-    ];
+{
+  imports = [
+    ./nix.nix
+    ./system.nix
+    ./homebrew.nix
+    ./apps.nix
+    ./defaults.nix
+    ./fonts.nix
+    ./users.nix
+  ];
 }

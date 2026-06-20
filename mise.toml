@@ -1,0 +1,57 @@
+[tasks.deploy]
+description = "Build + switch this machine's config (override target as arg)"
+usage = 'arg "<target>" default="@self"'
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+target="$usage_target"
+
+#   macOS host      → nix-darwin system, keyed by hostname (e.g. mac-studio)
+#   everything else → home-manager, keyed "<user>@<hostname>"
+if [ "$target" = "@self" ]; then
+  if [ "$(uname -s)" = Darwin ]; then target="$(uname -n)"; else target="$USER@$(uname -n)"; fi
+fi
+
+if [[ "$target" == *@* ]]; then
+  if command -v home-manager >/dev/null 2>&1; then
+    home-manager switch -b backup --flake ".#$target"
+  else
+    nix run home-manager/master -- switch -b backup --flake ".#$target"
+  fi
+else
+  if command -v nh >/dev/null 2>&1; then
+    nh darwin switch ".#$target"
+  else
+    nix run nixpkgs#nh -- darwin switch ".#$target"
+  fi
+fi
+'''
+
+[tasks.rollback]
+description = "Roll back to the previous generation"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$(uname -s)" = Darwin ]; then
+  sudo darwin-rebuild --rollback
+else
+  # home-manager has no one-shot rollback; pick a previous generation:
+  home-manager generations
+  echo "Run the chosen generation's activate script to roll back."
+fi
+'''
+
+[tasks.check]
+description = "Run all static gates in check mode (what CI runs)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+alejandra --check .
+deadnix --fail .
+statix check .
+gitleaks dir . --no-banner
+'''
+
+[tasks.fmt]
+description = "Format all nix files"
+run = "alejandra --quiet ."

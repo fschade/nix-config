@@ -1,9 +1,5 @@
-{
-  pkgs,
-  my,
-  ...
-}: {
-  users.users."${my.vars.user.name}" = {
-    home = "/Users/${my.vars.user.name}";
+{vars, ...}: {
+  users.users.${vars.user.name} = {
+    home = "/Users/${vars.user.name}";
   };
 }

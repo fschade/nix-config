@@ -1,37 +1,16 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}: {
-  # Install packages from nix's official package repository.
-  #
-  # The packages installed here are available to all users, and are reproducible across machines, and are rollbackable.
-  # But on macOS, it's less stable than homebrew.
-  #
-  # Related Discussion: https://discourse.nixos.org/t/darwin-again/29331
-  environment.systemPackages = with pkgs; [
-    neovim
-    git
-    nushell # my custom shell
-  ];
-
-  # homebrew need to be installed manually, see https://brew.sh
-  # https://github.com/LnL7/nix-darwin/blob/master/modules/homebrew.nix
+{...}: {
   homebrew = {
-    enable = true; # disable homebrew for fast deploy
+    taps = [
+      "nikitabobko/tap"
+      "sozercan/repo" # kaset
+    ];
 
-    onActivation = {
-      autoUpdate = true; # Fetch the newest stable branch of Homebrew's git repo
-      upgrade = true; # Upgrade outdated casks, formulae, and App Store apps
-      # 'zap': uninstalls all formulae(and related files) not listed in the generated Brewfile
-      cleanup = "zap";
-    };
+    brews = [
+      "mole" # deep clean and optimize your Mac
+    ];
 
-    # Applications to install from Mac App Store using mas.
-    # You need to install all these Apps manually first so that your apple account have records for them.
-    # otherwise Apple Store will refuse to install them.
-    # For details, see https://github.com/mas-cli/mas
+    # Mac App Store apps (via mas). They must be installed manually once so your
+    # Apple account has a record of them, otherwise the store refuses.
     masApps = {
       "Xcode" = 497799835;
       "The Unarchiver" = 425424353;
@@ -47,18 +26,8 @@
       "DaisyDisk" = 411643860;
     };
 
-    taps = [
-      "nikitabobko/tap"
-      "sozercan/repo" # kaset
-    ];
-
-    brews = [
-      "mole" # deep clean and optimize your Mac.
-    ];
-
     casks = [
       # OS enhancements
-      "aerospace"
       "hiddenbar"
       "raycast"
       "betterdisplay"
@@ -88,7 +57,18 @@
       "rode-central"
       "rode-virtual-channels"
       "appcleaner"
-      "sozercan/repo/kaset" # yt-music
+
+      # Casks from non-official taps. We trust the specific cask rather than the
+      # whole tap; per-cask trust only applies to fully-qualified names
+      # (user/tap/cask). See https://docs.brew.sh/Tap-Trust.
+      {
+        name = "nikitabobko/tap/aerospace";
+        trusted = true;
+      }
+      {
+        name = "sozercan/repo/kaset"; # yt-music
+        trusted = true;
+      }
     ];
   };
 }

@@ -1,0 +1,45 @@
+name: check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    name: static gates
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      # devShell provides mise + every gate tool
+      - run: nix develop -c bash -c 'mise trust && mise run check'
+
+  flake-check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            system: x86_64-linux
+          - runner: macos-latest
+            system: aarch64-darwin
+    runs-on: ${{ matrix.runner }}
+    name: flake check (${{ matrix.system }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/flakehub-cache-action@main
+      - name: build ${{ matrix.system }} checks
+        run: |
+          set -euo pipefail
+          sys='${{ matrix.system }}'
+          names=$(nix eval --json ".#checks.$sys" --apply builtins.attrNames | jq -r '.[]')
+          echo "checks for $sys: $names"
+          targets=""
+          for n in $names; do targets="$targets .#checks.$sys.$n"; done
+          nix build -L --no-link $targets
