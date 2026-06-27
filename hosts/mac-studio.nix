@@ -17,6 +17,8 @@ in {
     ../home/cli/proxy
     ../home/gui/ghostty.nix
     ../home/gui/aerospace
+    ../home/gui/sketchybar
+    ../home/gui/wallpaper.nix
   ];
 
   homebrew = {
@@ -33,4 +35,6 @@ in {
       "MoneyMoney" = 872698314;
     };
   };
+
+  local.loginItems = ["/Applications/TickTick.app"];
 }

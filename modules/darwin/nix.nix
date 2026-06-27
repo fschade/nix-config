@@ -10,8 +10,9 @@
   nix.gc.automatic = false;
 
   # Effective on platforms where nix-darwin manages nix.conf (no-op under
-  # Determinate, which enables flakes itself).
-  nix.settings.experimental-features = ["lazy-trees" "nix-command" "flakes"];
+  # Determinate, which enables flakes itself). Note: lazy-trees is a *setting*
+  # (lazy-trees = true), not an experimental feature — don't list it here.
+  nix.settings.experimental-features = ["nix-command" "flakes"];
 
   nixpkgs.config.allowUnfree = true;
 }

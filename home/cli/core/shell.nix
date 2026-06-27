@@ -14,5 +14,8 @@
     lt = "eza --tree --level=2 --icons";
     ".." = "cd ..";
     "..." = "cd ../..";
+    cs = "navi"; # "cheatsheet" — open navi's snippet picker
+    docs = "cht.sh"; # docs/wiki for any command: `docs eza`, `docs tar extract`
+    watch = "viddy"; # macOS has no `watch`; viddy is the modern drop-in
   };
 }

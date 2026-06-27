@@ -1,10 +1,6 @@
 {...}: {
   homebrew = {
-    taps = [
-      "nikitabobko/tap"
-      "sozercan/repo" # kaset
-    ];
-
+    # Taps are declared/pinned in homebrew.nix via nix-homebrew.
     brews = [
       "mole" # deep clean and optimize your Mac
     ];
@@ -28,23 +24,31 @@
 
     casks = [
       # OS enhancements
-      "hiddenbar"
+      "thaw" # menu-bar manager (maintained successor to Ice / Hidden Bar)
       "raycast"
       "betterdisplay"
       "itsycal"
       "via" # keyboard configurator
 
+      ## screenshots / recording
+      "macshot" # screenshots + annotation, scroll-capture, GIF, OCR, PII auto-redact
+      "cap" # screen recording with share links (open-source Loom alternative)
+
       ## dev
-      "docker-desktop"
+      # container runtime is colima (see home/cli/dev.nix), not Docker Desktop
+      "bruno" # API client — git-friendly (.bru files), open source, no cloud/account
       "cyberduck"
       "ghostty"
-      "visual-studio-code"
+      "zed" # fast native editor — lightweight complement to IntelliJ
       "jetbrains-toolbox"
-      "sequel-ace"
+      "beekeeper-studio" # multi-DB GUI (incl. Postgres) — OSS; replaces MySQL-only Sequel Ace
       "switchhosts"
 
       ## messaging
       "element"
+
+      ## notes
+      "tolaria" # markdown knowledge base / notes — OSS, git-backed, actively maintained
 
       ## other
       "bitwarden"

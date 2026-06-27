@@ -1,0 +1,47 @@
+% network, ports
+
+# Which process is listening on a port (macOS + Linux)
+lsof -nP -iTCP:<port> -sTCP:LISTEN
+
+# All listening TCP ports with their process
+lsof -nP -iTCP -sTCP:LISTEN
+
+# Linux alternative: listening ports + process
+ss -tlnp
+
+# Kill whatever is listening on a port
+lsof -ti :<port> | xargs kill -9
+
+# Is a remote host:port reachable?
+nc -zv <host> <port>
+
+% network, http
+
+# Response headers + status only (follow redirects)
+curl -sSL -o /dev/null -D - <url>
+
+# Just the HTTP status code
+curl -s -o /dev/null -w '%{http_code}\n' <url>
+
+# Timing breakdown: dns / connect / total
+curl -s -o /dev/null -w 'dns=%{time_namelookup}s connect=%{time_connect}s total=%{time_total}s\n' <url>
+
+# Serve the current directory over HTTP
+python3 -m http.server <port>
+
+% network, dns & ip
+
+# Resolve a domain (short)
+dig +short <domain>
+
+# Resolve via a specific resolver (bypass local cache)
+dig <domain> @1.1.1.1
+
+# My public IP
+curl -s https://ipinfo.io/ip
+
+# My LAN IP (macOS, Wi-Fi)
+ipconfig getifaddr en0
+
+# Flush DNS cache (macOS)
+sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder

@@ -11,6 +11,7 @@
     ./nh.nix
     ./nix-index.nix
     ./cli.nix
+    ./editorconfig.nix
     ./packages.nix
   ];
 }

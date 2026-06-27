@@ -1,5 +1,21 @@
-# The gate is defined once in mise (`mise run check`); the hook just runs it.
+# pre-commit auto-formats staged nix files (alejandra) and re-stages them, THEN
+# runs the full gate (`mise run check`) — so formatting fixes itself instead of
+# blocking the commit. `piped` + priority keeps fmt strictly before check.
 pre-commit:
+  piped: true
   commands:
+    fmt:
+      priority: 1
+      glob: "*.nix"
+      run: alejandra --quiet {staged_files}
+      stage_fixed: true
     check:
+      priority: 2
       run: mise run check
+
+# Conventional-commit linting (previously a global git hook). committed
+# auto-discovers ./committed.toml — the same config CI uses.
+commit-msg:
+  commands:
+    committed:
+      run: committed --commit-file {1}

@@ -18,13 +18,7 @@
 .netrwhist
 
 # AI / agent tooling — local junk, never belongs in a repo
-.claude/
-.claude.json
-CLAUDE.local.md
-.cursor/
-.aider*
-.continue/
-.windsurf/
+.claude/settings.local.json
 
 # direnv / nix
 .direnv/

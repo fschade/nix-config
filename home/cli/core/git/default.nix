@@ -1,9 +1,15 @@
 {
   config,
   lib,
+  pkgs,
   vars,
   ...
 }: {
+  # committed: conventional-commit linter (called by each repo's lefthook).
+  # difftastic: structural (syntax-aware) diff, used on demand via `git dft`
+  # (delta stays the default pager for `git diff`/`log`/`show`).
+  home.packages = [pkgs.committed pkgs.difftastic];
+
   home.activation.removeExistingGitconfig = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
     rm -f ${config.home.homeDirectory}/.gitconfig
   '';
@@ -33,11 +39,21 @@
       };
 
       commit.template = "${config.xdg.configHome}/git/commit-message";
+      alias.dft = "!git -c diff.external=difft diff"; # structural diff on demand
       init.defaultBranch = "main";
       trim.bases = "develop,master,main"; # for git-trim
       push.autoSetupRemote = true;
       pull.rebase = true;
       log.date = "iso";
+
+      rebase.autosquash = true; # auto-apply git-absorb `fixup!` commits on rebase
+      rebase.autostash = true; # stash/pop a dirty tree around rebase (and pull)
+      fetch.prune = true; # drop local refs for branches deleted on the remote
+      rerere.enabled = true; # remember + reuse conflict resolutions across rebases
+      merge.conflictStyle = "zdiff3"; # conflict markers that show the common base
+      diff.algorithm = "histogram"; # clearer, more stable diffs than the default
+      branch.sort = "-committerdate"; # list most-recently-used branches first
+      column.ui = "auto"; # columnar `git branch` / `git status` output
     };
   };
 

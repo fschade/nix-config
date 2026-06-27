@@ -1,0 +1,12 @@
+% atuin, history
+
+# Search history in a specific scope
+atuin search --filter-mode <mode> <query>
+
+# List commands from the current shell session
+atuin history list --session
+
+# List commands run in the current directory
+atuin history list --cwd
+
+$ mode: echo -e "global\nhost\nsession\ndirectory\nworkspace"

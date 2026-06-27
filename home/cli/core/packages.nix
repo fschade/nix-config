@@ -28,6 +28,7 @@
     sad # CLI search and replace, just like sed, but with diff preview
 
     jq # a lightweight and flexible command-line JSON processor
+    jless # interactive TUI viewer for browsing large JSON/YAML
     yq-go # yaml processor https://github.com/mikefarah/yq
     jc # converts the output of popular cli tools & file-types to JSON, YAML
 
@@ -69,10 +70,17 @@
     # security
     libargon2
     openssl
+    sops # edit/decrypt encrypted secret files (pairs with the IntelliJ sops plugin)
+    age # modern file encryption backend for sops
 
     # nix tooling
     nix-output-monitor # `nom`: nix build with richer logs
     nix-tree # TUI derivation dependency graph
+
+    # docs / help — `cht.sh <cmd>` is a community docs wiki for any tool (online,
+    # broader than tldr; supports questions: `cht.sh tar "extract gz"`). tldr
+    # (offline, quick examples) lives in cli.nix via programs.tealdeer.
+    cht-sh
 
     # misc
     file

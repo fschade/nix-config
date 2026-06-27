@@ -25,6 +25,33 @@
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Local HTTPS dev domains (e.g. myproject.test) with automatic certs +
+    # /etc/hosts management. Not in nixpkgs, so pulled from upstream.
+    localias = {
+      url = "github:peterldowns/localias";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Declarative Homebrew: installs brew itself and pins every tap as a flake
+    # input (see modules/darwin/homebrew.nix). Source trees, not flakes.
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    homebrew-core = {
+      url = "github:homebrew/homebrew-core";
+      flake = false;
+    };
+    homebrew-cask = {
+      url = "github:homebrew/homebrew-cask";
+      flake = false;
+    };
+    homebrew-nikitabobko = {
+      url = "github:nikitabobko/homebrew-tap"; # aerospace
+      flake = false;
+    };
+    homebrew-sozercan = {
+      url = "github:sozercan/homebrew-repo"; # kaset
+      flake = false;
+    };
   };
 
   outputs = {
@@ -44,7 +71,7 @@
 
     user = vars.user.name;
 
-    overlays = [(import ./overlays)];
+    overlays = [(import ./overlays inputs)];
 
     systems = ["aarch64-darwin" "x86_64-linux"];
     forAllSystems = nixpkgs.lib.genAttrs systems;
@@ -59,6 +86,7 @@
         modules = [
           {nixpkgs.overlays = overlays;}
           host
+          inputs.nix-homebrew.darwinModules.nix-homebrew
           home-manager.darwinModules.home-manager
           {
             home-manager = {
@@ -118,7 +146,7 @@
     };
 
     devShells = forAllSystems (system: let
-      pkgs = nixpkgs.legacyPackages.${system};
+      pkgs = import nixpkgs {inherit system overlays;};
     in {
       default = pkgs.mkShellNoCC {
         packages = with pkgs; [

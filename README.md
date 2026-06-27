@@ -13,7 +13,6 @@ Declarative config for my macOS and Linux machines.
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 sudo nix run nix-darwin -- switch --flake .#$HOST
 ```
 

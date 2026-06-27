@@ -19,6 +19,17 @@ jobs:
       # devShell provides mise + every gate tool
       - run: nix develop -c bash -c 'mise trust && mise run check'
 
+  commits:
+    runs-on: ubuntu-latest
+    name: commit messages
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need history to lint the PR's commit range
+      # Auto-discovers ./committed.toml (the same config the local hook uses).
+      - uses: crate-ci/committed@v1.1.11
+
   flake-check:
     strategy:
       fail-fast: false

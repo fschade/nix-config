@@ -1,0 +1,29 @@
+# Copier template — scaffold a Go service.
+#
+#   copier copy ~/.local/share/copier/templates/go-service ./my-service
+#
+# Pull later template changes into an existing project (needs the template to be
+# its own git repo with tags — see README.md):
+#   copier update
+
+_subdirectory: template
+_min_copier_version: "9"
+
+project_name:
+  type: str
+  help: Project name (kebab-case; used as binary & module tail)
+
+module_path:
+  type: str
+  help: Go module path
+  default: "github.com/fschade/{{ project_name }}"
+
+go_version:
+  type: str
+  help: Go toolchain version
+  default: "1.24"
+
+description:
+  type: str
+  help: One-line description
+  default: ""
