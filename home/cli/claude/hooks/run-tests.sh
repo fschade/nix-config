@@ -107,6 +107,31 @@ tg Edit bar.test.ts 'it.skip("x"); expect(1)' 'it.skip("x"); expect(2)'
 check 0 "pass:  pre-existing skip untouched" $?
 tg Edit main.go 'x' 'queue.skip(1)'
 check 0 "pass:  non-test file" $?
+tg Edit foo_test.go 'x := 1' 'if err := probeDB(ctx); err != nil {
+	t.Skipf("db not available: %v", err)
+}'
+check 0 "pass:  guarded t.Skip (dependency probe)" $?
+tg Write live_test.go '' 'func TestLive(t *testing.T) {
+	if os.Getenv("PG_DSN") == "" {
+		t.Skip("PG_DSN not set")
+	}
+}'
+check 0 "pass:  write live test with guarded skip" $?
+tg Write live_test.go '' 'func TestLive(t *testing.T) {
+	t.Skip("todo")
+}'
+check 2 "block: write test with bare t.Skip" $?
+tg Edit test_db.py '' 'if not db_available():
+    pytest.skip("no database")'
+check 0 "pass:  guarded pytest.skip" $?
+tg Edit test_db.py '' 'pytest.skip("later")'
+check 2 "block: bare pytest.skip" $?
+tg Edit test_db.py '' '@pytest.mark.skipif(no_db, reason="no db")'
+check 0 "pass:  pytest.mark.skipif" $?
+tg Edit test_db.py '' '@pytest.mark.skip'
+check 2 "block: pytest.mark.skip" $?
+tg Edit bar.test.ts '' 'if (x) { it.skip("y", f) }'
+check 2 "block: it.skip even inside if" $?
 
 # ---- audit-log (isolated HOME so the real log stays clean)
 tmphome="$(mktemp -d)"
