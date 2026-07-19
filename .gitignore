@@ -3,3 +3,13 @@
 result
 result/
 .DS_Store
+
+# per-app web-app overlays with secret room/invite links (see custom/web-apps)
+custom/web-apps/*/manifest.local.json
+
+# shareable web-app DMGs built by `mise run web-app dmg <slug>` (see custom/web-apps)
+dist/
+
+# swift package build artifacts (tools/web-app xcode/dev project)
+.build/
+.swiftpm/

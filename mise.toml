@@ -9,6 +9,11 @@ description = "Roll back to the previous generation"
 raw = true                                           # interactive sudo prompt needs a real TTY
 run = "./scripts/rollback.sh"
 
+[tasks.web-app]
+description = "web-app build [<path>...] [--out <dir>] | dmg <path>  (see tools/web-app/README.md)"
+raw = true                                                                    # forward the subcommand + args straight to the script
+run = "swift ./tools/web-app/web-app.swift"
+
 [tasks.check]
 description = "Run all static gates in check mode (what CI runs)"
 run = "./scripts/check.sh"

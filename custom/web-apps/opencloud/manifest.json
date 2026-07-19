@@ -1,0 +1,10 @@
+{
+  "name": "OpenCloud",
+  "url": "https://demo.opencloud.eu/",
+  "icon": "https://demo.opencloud.eu/img/opencloud-icon.png",
+  "version": "1.0",
+  "author": "OpenCloud",
+  "description": "Files, sync and share.",
+  "homepage": "https://opencloud.eu",
+  "inspectable": true
+}

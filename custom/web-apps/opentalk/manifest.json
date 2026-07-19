@@ -1,0 +1,16 @@
+{
+  "name": "OpenTalk",
+  "url": "https://meet.opentalk.eu/dashboard/",
+  "icon": "https://meet.opentalk.eu/icon-512x512.png",
+  "version": "1.0",
+  "author": "OpenTalk",
+  "description": "Video conferencing.",
+  "homepage": "https://opentalk.eu",
+  "links": [
+    { "title": "Home", "url": "https://meet.opentalk.eu/dashboard/", "section": "OpenCloud" },
+    { "title": "Main Hall", "url": "https://meet.opentalk.eu/room/30c2498d-8842-4e65-96a3-9b86edca72c9", "section": "OpenCloud" },
+    { "title": "Support", "url": "https://meet.opentalk.eu/room/7782ed75-4592-4979-a780-46ce30fbba41", "section": "OpenCloud" },
+    { "title": "Web Team", "url": "https://meet.opentalk.eu/room/1a970720-e69f-4c21-937e-6030e1fca1aa", "section": "OpenCloud" },
+    { "title": "Lower Decks", "url": "https://meet.opentalk.eu/room/f1742458-14a1-4a0f-98b0-957c27e36a70", "section": "OpenCloud" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Dashboard",
+  "url": "https://florian.my.odus.family/",
+  "icon": "icon.png",
+  "keepRunningWhenClosed": false,
+  "links": [
+    { "title": "Home", "url": "https://florian.my.odus.family/" },
+    { "title": "Work", "url": "https://florian.my.odus.family/work" },
+    { "title": "Lab", "url": "https://florian.my.odus.family/lab" }
+  ]
+}

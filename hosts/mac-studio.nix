@@ -41,8 +41,17 @@ in {
   };
 
   # obsbot install is manual (no cask), see MANUAL.md. login item autostarts it.
+  # pushover is a native web-app wrapper built by `mise run web-app build`, see MANUAL.md.
   local.loginItems = [
     "/Applications/TickTick.app"
     "/Applications/OBSBOT_Center.app"
+    "/Applications/Pushover.app"
+  ];
+
+  # web-app wrappers to build on this host (see custom/web-apps/ + MANUAL.md).
+  local.webApps = [
+    "dashboard"
+    "pushover"
+    "opentalk"
   ];
 }

@@ -1,0 +1,36 @@
+{
+  // --- required ---
+  "name": "Example App",              // app + bundle name
+  "url": "https://app.example.com/",  // the start page
+  "icon": "icon.png",                 // a file in this folder, OR a remote url
+                                      // ("https://…/icon.png") pulled at build time.
+                                      // never auto-detected.
+
+  // --- about panel (all optional) ---
+  "version": "1.0",                                        // -> About version
+  "author": "Example Org",                                // -> copyright line
+  "description": "What this app is, shown in the About.",  // -> About blurb
+  "homepage": "https://example.com/",                     // -> clickable About link
+  "bundleId": "com.example.webapp",                       // override the default id
+
+  // --- appearance / behaviour (all optional) ---
+  "iconBackground": "#1b3a4b",            // tile colour behind the artwork; set it
+                                          // when the icon has transparent corners.
+  "userAgent": "",                        // custom UA; empty = full desktop Safari
+  "inspectable": false,                   // true -> right-click > Inspect Element
+  "window": { "width": 1100, "height": 800 }, // initial window size
+
+  "allowSelfSignedCerts": false,          // accept self-signed / invalid TLS
+  "keepRunningWhenClosed": true,          // closing the window hides it, app stays
+  "openExternalLinksInBrowser": true,     // off-domain link clicks open in browser
+
+  // --- jump targets (optional) ---
+  // show as ⌘1…9 and in the toolbar "Links" dropdown. give links a "section" to
+  // group them under a heading — handy when one app fronts several sites.
+  "links": [
+    { "title": "Overview", "url": "https://team-a.example.com/",         "section": "Team A" },
+    { "title": "Planning", "url": "https://team-a.example.com/planning", "section": "Team A" },
+    { "title": "Overview", "url": "https://team-b.example.com/",         "section": "Team B" },
+    { "title": "Docs",     "url": "https://docs.example.com/" }
+  ]
+}
