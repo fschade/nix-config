@@ -2,6 +2,9 @@
   homebrew = {
     # taps are pinned in homebrew.nix via nix-homebrew.
     brews = [
+      # nix-darwin writes the mas lines into the Brewfile but not the cli that
+      # reads them, so without this the masApps block below does nothing.
+      "mas"
       "mole" # deep clean and optimize your mac
     ];
 
@@ -20,6 +23,7 @@
       "Amphetamine" = 937984704;
       "Blackmagic Disk Speed Test" = 425264550;
       "DaisyDisk" = 411643860;
+      "Windows App" = 1295203466; # rdp client
     };
 
     casks = [
@@ -39,13 +43,13 @@
       # container runtimes: colima is primary (see home/cli/dev.nix), orbstack
       # is there too. switch with `docker-use-colima` / `docker-use-orb` /
       # `docker-use-status`. none is docker desktop.
-      "orbstack" # fast docker/linux vm, switch to it via `docker-use-orb`
+      "orbstack" # fast docker/linux vm
       "bruno" # api client, git-friendly .bru files, open source, no cloud
       "cyberduck"
       "ghostty"
       "zed" # fast native editor, light beside intellij
       "jetbrains-toolbox"
-      "beekeeper-studio" # multi-db gui incl postgres, oss, replaces sequel ace
+      "beekeeper-studio" # multi-db gui incl postgres, oss
       "switchhosts"
 
       ## messaging
@@ -65,7 +69,7 @@
       "rode-central"
       "rode-virtual-channels"
       "appcleaner"
-      "puremac" # open-source app manager + system cleaner, replaces cleanmymac
+      "puremac" # open-source app manager + system cleaner
 
       # casks from non-official taps. we trust the single cask, not the whole
       # tap. per-cask trust only works with full name user/tap/cask.
@@ -76,10 +80,6 @@
       }
       {
         name = "sozercan/repo/kaset"; # yt-music
-        trusted = true;
-      }
-      {
-        name = "sane-apps/tap/sanebar"; # menu-bar manager, replaces thaw
         trusted = true;
       }
     ];

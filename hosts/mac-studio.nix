@@ -16,7 +16,6 @@ in {
       ../home/cli/core
       ../home/cli/dev.nix
       ../home/cli/ops.nix
-      ../home/cli/proxy
       ../home/gui/ghostty.nix
       ../home/gui/aerospace
       ../home/gui/karabiner
@@ -32,7 +31,7 @@ in {
       "ticktick"
 
       "claude" # claude desktop app
-      "claude-code" # claude code cli
+      "claude-code@latest" # claude code cli, rolling release channel
     ];
 
     masApps = {
@@ -41,8 +40,17 @@ in {
   };
 
   # obsbot install is manual (no cask), see MANUAL.md. login item autostarts it.
+  # pushover is a native web-app wrapper built by `mise run web-app build`, see MANUAL.md.
   local.loginItems = [
     "/Applications/TickTick.app"
     "/Applications/OBSBOT_Center.app"
+    "/Applications/Pushover.app"
+  ];
+
+  # web-app wrappers to build on this host (see custom/web-apps/ + MANUAL.md).
+  local.webApps = [
+    "dashboard"
+    "pushover"
+    "opentalk"
   ];
 }

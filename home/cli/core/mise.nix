@@ -21,8 +21,8 @@
         pnpm = "11";
         go = "1.26";
         rust = "stable";
-        # nixpkgs caps `usage` at 3.2.1, mise ships newer and its tool bin
-        # dirs win PATH over the nix profile, so this one wins.
+        # mise's tool bin dirs win PATH over the nix profile, so whatever is
+        # pinned here is the `usage` you get, not the one from nixpkgs.
         usage = "3";
       };
     };

@@ -19,7 +19,6 @@
     # shared on every darwin host. host-only items (e.g. TickTick) get added
     # in the host file and merge into this list.
     local.loginItems = [
-      "/Applications/SaneBar.app"
       # raycast autostart is a launchd agent instead (see home/os/darwin.nix),
       # the legacy login-item api is flaky and raycast self-registers anyway.
       "/Applications/AltTab.app" # ⌥Tab window switcher, must run so the hotkey work
@@ -33,13 +32,18 @@
       "/Applications/RODE Virtual Channels.app" # keep audio routing/mixing active
     ];
 
-    # reconcile as the user via System Events (same `sudo -u` as activateSettings
-    # in defaults.nix): clear all login items, then add exactly local.loginItems,
-    # so the lists here and in the host file are source of truth. `|| true` keeps
-    # a denied automation prompt from failing the switch. grant the one-time
-    # "control System Events" prompt so it apply.
+    # clears every login item, then adds exactly local.loginItems, so nix stays the
+    # truth. script and the automation grant it needs:
+    # custom/scripts/darwin/login-items.sh and MANUAL.md.
     system.activationScripts.postActivation.text = lib.mkAfter ''
       ${pkgs.bash}/bin/bash ${../../custom/scripts/darwin/login-items.sh} "${vars.user.name}" ${lib.escapeShellArgs config.local.loginItems}
     '';
+
+    # the list again as a file, so scripts/deploy.sh can reconcile once more after
+    # it builds the web-apps. a web-app that is also a login item (Pushover) does
+    # not exist yet when the switch runs this, the build comes later. mirrors how
+    # web-apps.nix hands its list to the builder.
+    environment.etc."login-items".text =
+      lib.concatStringsSep "\n" config.local.loginItems;
   };
 }

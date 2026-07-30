@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
-# sketchybar config — aerospace workspace indicator + focused app.
-export PATH="/opt/homebrew/bin:$PATH" # so plugins/click-scripts find `aerospace`
+# sketchybar: aerospace workspace indicator + focused app
+# redundant with the daemon wrapper, kept so the script also works run by hand
+export PATH="/opt/homebrew/bin:$PATH"
 
 PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+# dont put "SF Pro" here, its not a registered family name and the lookup
+# lands on helvetica without saying anything
+UI_FONT=".AppleSystemUIFont"
 
 # catppuccin mocha
 BASE=0xff1e1e2e
 TEXT=0xffcdd6f4
-ACCENT=0xfff5c2e7 # pink (active workspace)
+ACCENT=0xfff5c2e7 # pink
 
 sketchybar --bar height=32 position=top padding_left=8 padding_right=8 color=$BASE
 
 sketchybar --default \
-  icon.font="SF Pro:Semibold:14.0" \
-  label.font="SF Pro:Semibold:14.0" \
+  icon.font="$UI_FONT:Semibold:14.0" \
+  label.font="$UI_FONT:Semibold:14.0" \
   icon.color=$TEXT \
   label.color=$TEXT \
   padding_left=4 padding_right=4 \
   label.padding_left=6 label.padding_right=6
 
-# --- aerospace workspaces (1–9) ---
 sketchybar --add event aerospace_workspace_change
 
 for sid in 1 2 3 4 5 6 7 8 9; do
@@ -35,11 +39,10 @@ for sid in 1 2 3 4 5 6 7 8 9; do
     script="$PLUGIN_DIR/aerospace.sh $sid"
 done
 
-# --- focused app (glyph via sketchybar-app-font + name) ---
 sketchybar --add item front_app left \
   --set front_app \
     icon.font="sketchybar-app-font:Regular:16.0" \
-    label.font="SF Pro:Bold:14.0" \
+    label.font="$UI_FONT:Bold:14.0" \
     script="$PLUGIN_DIR/front_app.sh" \
   --subscribe front_app front_app_switched
 

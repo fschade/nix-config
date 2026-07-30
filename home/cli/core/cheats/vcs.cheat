@@ -9,8 +9,8 @@ git commit --amend --no-edit
 # Discard all local changes and match remote
 git reset --hard <remote>/<branch>
 
-# Delete local branches already merged & gone on remote
-git branch --merged | grep -vE '\*|main|master' | xargs -r git branch -d
+# Delete local branches already merged into HEAD
+git branch --merged | grep -vE '^\*|^[[:space:]]*(main|master)$' | xargs -r git branch -d
 
 # Interactively rebase the last N commits
 git rebase -i HEAD~<n>
@@ -18,5 +18,6 @@ git rebase -i HEAD~<n>
 # Show files changed in the last commit
 git show --stat
 
+; branch interpolates $remote, so it only resolves after the remote pick
 $ remote: git remote
-$ branch: git branch --format '%(refname:short)'
+$ branch: git branch --remotes --list "$remote/*" --format '%(refname:lstrip=3)' | grep -v '^HEAD$'

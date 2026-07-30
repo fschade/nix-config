@@ -7,8 +7,6 @@
     startup.chime = false;
 
     defaults = {
-      LaunchServices.LSQuarantine = false;
-
       # ask password right after screensaver or sleep
       screensaver = {
         askForPassword = true;
@@ -54,6 +52,10 @@
         wvous-br-corner = 1;
       };
 
+      spaces = {
+        spans-displays = true; # one workspace over all displays, for aerospace multi-monitor
+      };
+
       trackpad = {
         Clicking = true; # tap-to-click
       };
@@ -62,6 +64,7 @@
         location = "/Users/${vars.user.name}/Pictures/Screenshots"; # not the desktop
         type = "png";
         disable-shadow = true; # no drop shadow on window capture
+        show-thumbnail = false; # save straight to disk, skip the bottom-right preview
       };
 
       iCal = {
@@ -75,8 +78,6 @@
       };
 
       CustomUserPreferences = {
-        # menu-bar manager is SaneBar (cask in apps.nix). which icons are hidden
-        # is per machine, set once in the SaneBar UI, cant declare it here.
         "com.apple.finder" = {
           ShowRecentTags = false; # hide tags section in finder sidebar
         };
@@ -87,17 +88,6 @@
           # no .DS_Store on network or usb volumes, keeps repos clean
           DSDontWriteNetworkStores = true;
           DSDontWriteUSBStores = true;
-        };
-        "com.apple.spaces" = {
-          "spans-displays" = true; # one workspace over all displays, for aerospace multi-monitor
-        };
-        "com.apple.symbolichotkeys" = {
-          AppleSymbolicHotKeys = {
-            # disable 'cmd + space' for spotlight Search
-            "64" = {
-              enabled = false;
-            };
-          };
         };
         "com.raycast.macos" = {
           # enable 'cmd + space' for raycast search
@@ -127,9 +117,17 @@
       };
     };
 
-    # user-side reconcile after activation: screenshots dir, finder sidebar,
-    # settings reload. script lives in custom/scripts/, values passed in.
+    # the user-side leftovers, everything system.defaults cant express. runs as
+    # root, both halves step down to the user themselves.
     activationScripts.postActivation.text = ''
+      # spotlight off so raycast gets cmd+space. not a CustomUserPreferences entry:
+      # nix-darwin writes the whole AppleSymbolicHotKeys dict, that puts every
+      # shortcut you set by hand in system settings back to factory. -dict-add
+      # merges into what is there. the hand-set half is in MANUAL.md.
+      #
+      # before the script on purpose, it ends with activateSettings and that is what makes this take
+      launchctl asuser "$(id -u -- ${vars.user.name})" sudo --user=${vars.user.name} -- defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 64 '<dict><key>enabled</key><false/></dict>'
+
       ${pkgs.bash}/bin/bash ${../../custom/scripts/darwin/defaults-postactivation.sh} "${vars.user.name}" "${pkgs.mysides}/bin/mysides"
     '';
   };

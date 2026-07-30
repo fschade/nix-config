@@ -7,12 +7,11 @@
   programs.nh = {
     enable = true;
 
-    # no hardcoded `flake` path, this config shouldnt assume a checkout location
-    # so anyone can clone it. scripts/deploy.sh pass the flake (`.#<host>`).
-    # for a bare `nh os switch` set $NH_FLAKE (or pass `nh os switch <path>#<host>`).
+    # no hardcoded `flake` path, this config shouldnt assume a checkout location.
+    # for a bare `nh os switch` set $NH_FLAKE, or pass `<path>#<host>`.
 
-    # auto store GC. nh cleaner use a systemd timer, so only on linux.
-    # on darwin the GC is done by nix-darwin (nix.gc).
+    # auto store GC, linux only. the module would wire a launchd agent on darwin
+    # too, but determinate owns the daemon there, so run `nh clean all` by hand.
     clean = lib.mkIf pkgs.stdenv.isLinux {
       enable = true;
       extraArgs = "--keep-since 7d --keep 3";

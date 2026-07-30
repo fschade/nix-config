@@ -17,7 +17,7 @@
 *~
 .netrwhist
 
-# AI / agent tooling — local junk, never belongs in a repo
+# AI / agent tooling: local junk, never belongs in a repo
 .claude/settings.local.json
 
 # direnv / nix

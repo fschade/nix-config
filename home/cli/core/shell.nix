@@ -16,6 +16,5 @@
     "..." = "cd ../..";
     cs = "navi"; # cheatsheet, open navi snippet picker
     docs = "cht.sh"; # docs/wiki for any command: `docs eza`, `docs tar extract`
-    watch = "viddy"; # macOS has no `watch`, viddy is the modern drop-in
   };
 }

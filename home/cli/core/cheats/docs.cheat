@@ -6,8 +6,8 @@ tldr <command>
 # Community docs / wiki for a command (cht.sh, online)
 cht.sh <command>
 
-# Ask a question about a command (cht.sh)
-cht.sh <command> <question>
+# Search a command's cheat sheet for a keyword (cht.sh)
+cht.sh <command>~<keyword>
 
 # Full manual page
 man <command>

@@ -1,6 +1,5 @@
 {
   config,
-  lib,
   pkgs,
   vars,
   ...
@@ -10,11 +9,6 @@
   # default pager for `git diff`/`log`/`show`.
   home.packages = [pkgs.committed pkgs.difftastic];
 
-  home.activation.removeExistingGitconfig = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
-    rm -f ${config.home.homeDirectory}/.gitconfig
-  '';
-
-  # GitHub CLI - https://cli.github.com/manual/
   programs.gh = {
     enable = true;
     settings = {
@@ -39,7 +33,7 @@
       };
 
       commit.template = "${config.xdg.configHome}/git/commit-message";
-      alias.dft = "!git -c diff.external=difft diff"; # syntax diff
+      alias.dft = "!git -c diff.external=difft diff";
 
       # `git difftool` (and `git dt`) open changes in difftastic instead of the
       # pager. regular `git diff` still use delta.
@@ -48,7 +42,6 @@
       difftool.prompt = false;
       alias.dt = "difftool";
       init.defaultBranch = "main";
-      trim.bases = "develop,master,main"; # for git-trim
       push.autoSetupRemote = true;
       pull.rebase = true;
       log.date = "iso";
@@ -64,7 +57,6 @@
     };
   };
 
-  # syntax highlight pager for git diff/grep/blame
   programs.delta = {
     enable = true;
     enableGitIntegration = true;
@@ -75,6 +67,6 @@
     };
   };
 
-  # git terminal UI
   programs.lazygit.enable = true;
+  home.shellAliases.lg = "lazygit";
 }

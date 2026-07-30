@@ -6,7 +6,6 @@
     helix # `hx`: modal editor, LSP and tree-sitter builtin
     gnumake # Makefile
     just # command runner like gnumake but simpler
-    git # used by nix flakes
     git-lfs # used by huggingface models
 
     # system monitoring
@@ -81,8 +80,8 @@
     nix-tree # TUI derivation dependency graph
 
     # docs / help. `cht.sh <cmd>` is a docs wiki for any tool, online, broader
-    # than tldr. also questions: `cht.sh tar "extract gz"`. tldr (offline) is
-    # in cli.nix via programs.tealdeer.
+    # than tldr. `cht.sh <cmd>~<keyword>` searches inside one sheet. tldr
+    # (offline) is in cli.nix via programs.tealdeer.
     cht-sh
 
     # misc

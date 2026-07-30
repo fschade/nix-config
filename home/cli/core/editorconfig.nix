@@ -1,8 +1,7 @@
 {...}: {
-  # global ~/.editorconfig baseline. the module adds `root = true` itself.
-  # editorconfig searches upward and stops at nearest match, so a project-local
-  # .editorconfig always wins. this only applies when a project ships none.
-  # formatters (gofmt, alejandra) do the real work, this is just the safety net.
+  # global ~/.editorconfig safety net for projects that ship none. a
+  # project-local .editorconfig always wins, editorconfig stops at the nearest
+  # match. real formatting is still gofmt/alejandra's job.
   editorconfig = {
     enable = true;
     settings = {

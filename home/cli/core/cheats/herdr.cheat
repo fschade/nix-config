@@ -1,0 +1,33 @@
+; In-session keybindings live behind the Ctrl-b prefix and are shown with
+; Ctrl-b ? ; these cover the CLI side.
+
+% herdr, multiplexer
+
+# Launch or attach to the default session
+herdr
+
+# Launch or attach to a named session
+herdr --session <name>
+
+# Attach to an existing named session
+herdr session attach <session>
+
+# Attach to a herdr server on a remote host over SSH
+herdr --remote <ssh-target>
+
+# List sessions
+herdr session list
+
+# Stop a running session, keeping it on disk
+herdr session stop <session>
+
+# Delete a session for good
+herdr session delete <session>
+
+# Show client and server status
+herdr status
+
+# Reload config.toml in the running server
+herdr server reload-config
+
+$ session: herdr session list --json 2>/dev/null | jq -r '.sessions[].name'

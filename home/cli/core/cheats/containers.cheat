@@ -9,7 +9,7 @@ docker container prune -f
 # Remove dangling images
 docker image prune -f
 
-# Full cleanup: stopped containers, networks, dangling images, build cache
+# Full cleanup: stopped containers, networks, ALL unused images, build cache
 docker system prune -af
 
 # Shell into a running container

@@ -3,7 +3,8 @@
   pkgs,
   ...
 }: {
-  # cheatsheet launcher, Ctrl-G open a fzf picker over snippets.
+  # cheatsheet launcher, a fzf picker over snippets. zsh rebinds it to Ctrl-/
+  # (see home/cli/core/zsh.nix), bash keeps navi's own Ctrl-G. `cs` works in both.
   # personal cheats are below, add more with `navi repo add denisidoro/cheats`.
   programs.navi = {
     enable = true;
@@ -19,8 +20,12 @@
     config.pager = "less -FR";
   };
 
-  # fuzzy finder
-  programs.fzf.enable = true;
+  # fuzzy finder. atuin owns Ctrl-R (see below), so drop fzf's history widget.
+  # otherwise both bind it and home-manager warns about the clash.
+  programs.fzf = {
+    enable = true;
+    historyWidget.command = "";
+  };
 
   # fast tldr client
   programs.tealdeer = {
@@ -41,10 +46,11 @@
   # terminal file manager
   programs.yazi = {
     enable = true;
-    package = pkgs.yazi;
     enableBashIntegration = true;
     enableZshIntegration = true;
-    settings.manager = {
+    # [mgr] since yazi 25.5.31, the old [manager] name only trips the migration
+    # warning on every launch (the store-managed toml is read-only)
+    settings.mgr = {
       show_hidden = true;
       sort_dir_first = true;
     };
@@ -73,25 +79,19 @@
     };
   };
 
-  # terminal multiplexer, mostly for persistent sessions over SSH (detach/attach
-  # on the pve servers). shell auto-start is OFF, Ghostty do local splits.
-  # run `zellij` / `zellij attach` when you want it. catppuccin themes it by itself.
-  programs.zellij = {
+  # agent multiplexer, also the persistent-session layer over SSH (detach/attach
+  # on the pve servers, sessions survive a server restart). shell auto-start is
+  # OFF, Ghostty do the local splits. run `herdr`, or `herdr session attach
+  # <name>` for a named one. every binding sits behind the Ctrl-b prefix, so
+  # nothing clash with the aerospace / karabiner alt binds.
+  programs.herdr = {
     enable = true;
     settings = {
-      mouse_mode = true; # click panes / scroll (default off), Shift+drag = native select
-      session_serialization = true; # sessions survive reboots, not only disconnects
+      onboarding = false; # skip the first-run wizard, config comes from here
+      # catppuccin/nix has no herdr module, herdr ships the palette itself
+      theme.name = "catppuccin";
+      update.version_check = false; # nix manage the binary, skip the update nag
     };
-    # aerospace grabs alt-h/j/k/l/=/-, karabiner grabs alt-n/o (umlauts) —
-    # these zellij defaults can never fire, unbind them so the config dont lie.
-    # the other alt binds dont reach zellij from ghostty either (option is the
-    # compose key there), so day to day zellij runs on its ctrl modes:
-    # Ctrl p -> n = new pane, Ctrl t -> n = new tab.
-    extraConfig = ''
-      keybinds {
-          unbind "Alt h" "Alt j" "Alt k" "Alt l" "Alt =" "Alt -" "Alt n" "Alt o"
-      }
-    '';
   };
 
   # per-dir env, auto-loads a project flake devShell via nix-direnv
@@ -100,10 +100,13 @@
     enableBashIntegration = true;
     enableZshIntegration = true;
     nix-direnv.enable = true;
-    # `use docker orb|colima` in a .envrc sets per-dir DOCKER_CONTEXT.
-    # darwin only, targets the colima/orbstack contexts.
-    stdlib = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
-      builtins.readFile ../../../custom/scripts/darwin/direnv-use-docker.sh
-    );
+    stdlib =
+      # moves .direnv out of the project, see the script.
+      builtins.readFile ../../../custom/scripts/common/direnv-layout-dir.sh
+      # `use docker orb|colima` in a .envrc sets per-dir DOCKER_CONTEXT.
+      # darwin only, targets the colima/orbstack contexts.
+      + lib.optionalString pkgs.stdenv.hostPlatform.isDarwin (
+        builtins.readFile ../../../custom/scripts/darwin/direnv-use-docker.sh
+      );
   };
 }

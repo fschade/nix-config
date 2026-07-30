@@ -1,4 +1,8 @@
-#!/nix/store/55976waa157aqb1ncbwm6b8sa64b6m3h-bash-5.3p9/bin/bash
+#!/usr/bin/env bash
+# generated icon map, vendored with thanks from
+# github.com/kvndrsslr/sketchybar-app-font. sourced by plugins/front_app.sh, or
+# run directly to map names on the command line (see the bottom). plain env
+# shebang, a store path would dangle on other machines.
 
 ### START-OF-ICON-MAP
 function __icon_map() {

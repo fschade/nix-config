@@ -23,8 +23,8 @@
       ''
       # must run AFTER navi/atuin integrations define their widgets, so mkAfter.
       (lib.mkAfter ''
-        # navi snippet picker on Ctrl-/ (sends ^_), works in zellij too,
-        # unlike Ctrl-G. also via the `cs` alias.
+        # navi snippet picker on Ctrl-/ (sends ^_), stays free inside a
+        # multiplexer unlike Ctrl-G. also via the `cs` alias.
         bindkey -r "^g"            # drop navi default Ctrl-G binding
         bindkey "^_" _navi_widget  # Ctrl-/
         # `?` types a literal char, disable atuin `?`-at-empty-prompt AI.

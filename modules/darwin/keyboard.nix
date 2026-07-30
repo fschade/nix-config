@@ -22,6 +22,7 @@
     # on U.S.: `~` is shift+backtick (top-left under esc), umlauts are
     # option+u then vowel = ä ö ü, option+s = ß. may need re-login.
     # if `~` still need fn, thats your VIA firmware not macos, remap it there.
+    # karabiner puts the umlauts on ⌥a/⌥o/⌥u on top of this, see home/gui/karabiner
     defaults.CustomUserPreferences."com.apple.HIToolbox" = {
       AppleEnabledInputSources = [
         {

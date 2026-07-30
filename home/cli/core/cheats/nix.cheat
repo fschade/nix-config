@@ -7,7 +7,7 @@ nix-collect-garbage -d
 nix eval <flake>#<attr>
 
 # Update a single flake input
-nix flake lock --update-input <input>
+nix flake update <input>
 
 # Run a program from nixpkgs without installing
 nix run nixpkgs#<pkg>

@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+{...}: {
   # minimal status bar: aerospace workspace indicator (1-9, active highlighted) + focused app.
   # aerospace hides the macos spaces so this show where you are.
   programs.sketchybar = {
@@ -9,7 +9,7 @@
       source = ./config;
       recursive = true;
     };
-    extraPackages = [pkgs.jq];
-    # includeSystemPath is on by default. sketchybarrc also prepend /opt/homebrew/bin so plugins find the `aerospace` cli.
+    # includeSystemPath is on by default and suffixes /opt/homebrew/bin onto the
+    # wrapper, so the daemon and the scripts it forks find the brew aerospace cli
   };
 }

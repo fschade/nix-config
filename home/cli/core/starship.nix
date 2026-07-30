@@ -4,8 +4,8 @@
     enableBashIntegration = true;
     enableZshIntegration = true;
 
-    # https://starship.rs/config/  colors come from the catppuccin terminal
-    # palette, so standard names render in the theme.
+    # https://starship.rs/config/  catppuccin/nix sets `palette` and ships the
+    # names used below, `mauve` / `peach` / `sky` are not starship builtins
     settings = {
       "$schema" = "https://starship.rs/config-schema.json";
       add_newline = true;
