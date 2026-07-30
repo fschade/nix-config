@@ -7,8 +7,7 @@
       "Bash(mise run claude-hooks-test)",
       "Bash(alejandra *)",
       "Bash(deadnix *)",
-      "Bash(statix check *)",
-      "Bash(nix build *)"
+      "Bash(statix check *)"
     ]
   }
 }

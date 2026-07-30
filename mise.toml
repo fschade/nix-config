@@ -1,13 +1,28 @@
 [tasks.deploy]
 description = "Build + switch this machine's config (override target as arg)"
 usage = 'arg "<target>" default="@self"'
-raw = true                                                                    # nh/nom needs a real TTY for live output + sudo prompt; without it mise pipes stdout and you get silence
+# sudo prompt needs a real TTY, mise pipes stdout otherwise
+raw = true
 run = "./scripts/deploy.sh"
 
 [tasks.rollback]
 description = "Roll back to the previous generation"
-raw = true                                           # interactive sudo prompt needs a real TTY
+# sudo prompt, same as deploy
+raw = true
 run = "./scripts/rollback.sh"
+
+[tasks.gc]
+description = "Delete generations older than <retention>, then collect the store"
+usage = 'arg "<retention>" default="30d"'
+# sudo prompt, same as deploy
+raw = true
+run = "./scripts/gc.sh"
+
+[tasks.web-app]
+description = "web-app build [<path>...] [--out <dir>] | dmg <path>  (see tools/web-app/README.md)"
+# swiftc and the builder print progress, raw keeps their output live
+raw = true
+run = "swift ./tools/web-app/web-app.swift"
 
 [tasks.check]
 description = "Run all static gates in check mode (what CI runs)"
@@ -15,12 +30,23 @@ run = "./scripts/check.sh"
 
 [tasks.fmt]
 description = "Format all nix files"
-run = "alejandra --quiet ."
+# same scope as the check gate: gitignored trees like tmp/ are not ours to rewrite
+run = "git ls-files -z --cached --others --exclude-standard '*.nix' | xargs -0 alejandra --quiet"
+
+[tasks.flake-update]
+description = "Bump all flake inputs except the churny homebrew taps"
+run = "./scripts/flake-update.sh"
+
+[tasks.brew-update]
+description = "Bump the pinned homebrew taps (deploy after, to pull the new formulae/casks)"
+# brew-src is pinned to a version tag, so it only re-locks, it doesnt move. bump
+# brew itself by editing that tag in flake.nix, together with the taps.
+run = "nix flake update brew-src homebrew-core homebrew-cask homebrew-nikitabobko homebrew-sozercan"
 
 [tasks.apps]
 description = "List the apps/CLIs you declared (nix packages + brew casks)"
 run = "./scripts/apps.sh"
 
 [tasks.claude-hooks-test]
-description = "Regression tests for the claude code guard hooks"
+description = "Regression tests for the claude code guard hooks (see home/cli/claude/hooks/README.md)"
 run = "./home/cli/claude/hooks/run-tests.sh"

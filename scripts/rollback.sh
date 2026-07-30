@@ -3,7 +3,13 @@
 set -euo pipefail
 
 if [ "$(uname -s)" = Darwin ]; then
-  sudo darwin-rebuild --rollback
+  # darwin-rebuild sits in /run/current-system/sw/bin, sudo's secure_path does
+  # not have it. resolve before, not after
+  if ! rebuild="$(command -v darwin-rebuild)"; then
+    echo "darwin-rebuild not on PATH, nothing to roll back with." >&2
+    exit 1
+  fi
+  sudo "$rebuild" --rollback
 else
   # home-manager has no one-shot rollback, pick a previous generation:
   home-manager generations

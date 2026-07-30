@@ -1,6 +1,18 @@
 [extend]
 useDefault = true
 
+# paths are unanchored regexes, so every entry needs the `^`. without it `tmp/`
+# matches any path with a tmp/ segment, not only the one at the root
+
 [[allowlists]]
 description = "IDE - gitignored"
-paths = ['''\.idea/.*''']
+paths = ['''^\.idea/''']
+
+[[allowlists]]
+description = "gitignored build output and scratch - nothing hand-written in here"
+paths = [
+  '''^tools/web-app/\.build/''',
+  '''^tools/web-app/\.swiftpm/''',
+  '''^dist/''',
+  '''^tmp/''',
+]

@@ -1,6 +1,6 @@
-# pre-commit auto-formats staged nix files (alejandra) and re-stages them, THEN
-# runs the full gate (`mise run check`) — so formatting fixes itself instead of
-# blocking the commit. `piped` + priority keeps fmt strictly before check.
+# fmt auto-formats staged nix files and re-stages them, then check runs the full
+# gate: so formatting fixes itself instead of blocking the commit. `piped` +
+# priority keeps fmt strictly before check.
 pre-commit:
   piped: true
   commands:
@@ -13,8 +13,6 @@ pre-commit:
       priority: 2
       run: mise run check
 
-# Conventional-commit linting (previously a global git hook). committed
-# auto-discovers ./committed.toml — the same config CI uses.
 commit-msg:
   commands:
     committed:

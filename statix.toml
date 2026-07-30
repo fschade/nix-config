@@ -1,1 +1,3 @@
+# both fire on normal module style: empty_pattern on `{...}:` headers, repeated
+# keys on dotted attrs like home.sessionPath next to home.stateVersion
 disabled = ["repeated_keys", "empty_pattern"]

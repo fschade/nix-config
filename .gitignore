@@ -3,3 +3,17 @@
 result
 result/
 .DS_Store
+
+# per-app web-app overlays with secret room/invite links (see custom/web-apps)
+custom/web-apps/*/manifest.local.json
+
+# shareable web-app DMGs built by `mise run web-app dmg <path>` (see custom/web-apps)
+dist/
+
+# swift package build artifacts (tools/web-app xcode/dev project)
+.build/
+.swiftpm/
+
+# local scratch: reports, notes, throwaway files. the gates skip it, so it has
+# to be ignored here too and not only in someone's global gitignore
+tmp/

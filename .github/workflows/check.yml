@@ -15,36 +15,85 @@ jobs:
     name: static gates
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          fetch-depth: 0 # gitleaks scans the full history, not just HEAD
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
       # devShell provides mise + every gate tool
       - run: nix develop -c bash -c 'mise trust && mise run check'
 
   commits:
     runs-on: ubuntu-latest
     name: commit messages
-    if: github.event_name == 'pull_request'
+    # push too, the local commit-msg hook is opportunistic. not workflow_dispatch,
+    # there is no range to compute there
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # need history to lint the PR's commit range
-      # Auto-discovers ./committed.toml (the same config the local hook uses).
+          fetch-depth: 0 # need history to lint the whole commit range
+      # a pr is checked out as a merge commit: HEAD~ is the base, HEAD^2 the
+      # branch tip. a push carries the commit it replaced, but that is the zero
+      # sha on a new branch and a gone object after a force push
+      - id: range
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            range='HEAD~..HEAD^2'
+          elif git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            range='${{ github.event.before }}..${{ github.sha }}'
+          else
+            # no usable before, so tip only. a new branch or force push can carry
+            # more, those get caught again on the pr
+            range='HEAD~..HEAD'
+          fi
+          echo "linting $range"
+          echo "range=$range" >>"$GITHUB_OUTPUT"
+      # auto-discovers ./committed.toml, same config the local hook uses
       - uses: crate-ci/committed@v1.1.11
+        with:
+          commits: ${{ steps.range.outputs.range }}
+
+  # the systems come from the flake's checks, not from a list here: a host on a
+  # new platform gets its own job instead of silently no coverage. a system with
+  # no runner mapped fails this job loudly.
+  systems:
+    runs-on: ubuntu-latest
+    name: check systems
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - id: matrix
+        run: |
+          set -euo pipefail
+          runners='{
+            "x86_64-linux": "ubuntu-latest",
+            "aarch64-linux": "ubuntu-24.04-arm",
+            "aarch64-darwin": "macos-latest",
+            "x86_64-darwin": "macos-13"
+          }'
+          systems=$(nix eval --json '.#checks' --apply builtins.attrNames)
+          echo "systems in checks: $systems"
+          unmapped=$(jq -r --argjson r "$runners" '.[] | select($r[.] == null)' <<<"$systems")
+          if [ -n "$unmapped" ]; then
+            echo "no ci runner mapped for: $unmapped" >&2
+            exit 1
+          fi
+          matrix=$(jq -c --argjson r "$runners" '{include: [.[] | {system: ., runner: $r[.]}]}' <<<"$systems")
+          echo "matrix=$matrix" >>"$GITHUB_OUTPUT"
 
   flake-check:
+    needs: systems
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-latest
-            system: x86_64-linux
-          - runner: macos-latest
-            system: aarch64-darwin
+      matrix: ${{ fromJSON(needs.systems.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     name: flake check (${{ matrix.system }})
     steps:
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/flakehub-cache-action@main
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: DeterminateSystems/flakehub-cache-action@77c6bddd7d747943530aaa578c57f233ee5d920e # v3.21.8
       - name: build ${{ matrix.system }} checks
         run: |
           set -euo pipefail

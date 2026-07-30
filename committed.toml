@@ -1,8 +1,7 @@
-# Conventional Commits — https://www.conventionalcommits.org
-# Single source of truth, auto-discovered at the repo root by both:
-#   - CI: the crate-ci/committed action
-#   - locally: lefthook's commit-msg hook (see lefthook.yml), which runs `committed`
-# Only values that diverge from committed's defaults are set.
+# conventional commits: https://www.conventionalcommits.org
+# auto-discovered at the repo root by CI (crate-ci/committed action) and by
+# lefthook's commit-msg hook, so both use the same rules. only values that
+# diverge from committed's defaults are set.
 style = "conventional"
 allowed_types = ["feat", "fix", "build", "ci", "test", "docs", "refactor", "perf", "style", "chore", "revert"]
 subject_capitalized = false
