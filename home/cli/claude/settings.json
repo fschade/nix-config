@@ -9,10 +9,19 @@
   "switchModelsOnFlag": false,
   "cleanupPeriodDays": 365,
   "enableAllProjectMcpServers": false,
+  "lspServers": {
+    "sourcekit-lsp": {
+      "command": "sourcekit-lsp",
+      "extensionToLanguage": {
+        ".swift": "swift"
+      }
+    }
+  },
   "env": {
     "DISABLE_TELEMETRY": "1",
     "DISABLE_ERROR_REPORTING": "1",
-    "DISABLE_AUTOUPDATER": "1"
+    "DISABLE_AUTOUPDATER": "1",
+    "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1"
   },
   "hooks": {
     "PreToolUse": [
@@ -45,11 +54,23 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/herdr-agent-state.sh session",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
     "type": "command",
-    "command": "bash /Users/fschade/.claude/statusline-command.sh"
+    "command": "bash ~/.claude/statusline-command.sh"
   },
   "permissions": {
     "allow": [
@@ -78,7 +99,6 @@
       "Bash(tail *)",
       "Bash(wc *)",
       "Bash(jq *)",
-      "Bash(nix eval *)",
       "Bash(nix flake check)",
       "Bash(nix flake check *)",
       "Bash(nix flake show)",
@@ -94,6 +114,11 @@
       "Bash(sudo *)",
       "Bash(mkfs *)",
       "Edit(~/.claude/settings.json)",
+      "Edit(~/.agents/**)",
+      "Edit(~/.claude/skills/**)",
+      "Edit(~/.claude/agents/**)",
+      "Edit(~/.claude/commands/**)",
+      "Edit(~/.claude/plugins/**)",
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.aws/**)",
@@ -105,7 +130,8 @@
       "Read(~/.npmrc)",
       "Read(~/Library/Keychains/**)",
       "Read(.env)",
-      "Read(.env.*)"
+      "Read(.env.local)",
+      "Read(.env.*.local)"
     ]
   }
 }
