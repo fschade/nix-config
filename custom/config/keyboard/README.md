@@ -1,25 +1,11 @@
-# Keyboard layout — Keebwerk Mega ANSI (Yiancar-Designs)
+# Keebwerk Mega ANSI: VIA keymap
 
-Board runs stock **QMK/VIA** firmware. Umlauts (ä ö ü) and `~` are handled in
-macOS by Karabiner, not on the board — see `home/gui/karabiner/`. This folder
-only version-controls the VIA keymap so it is not lost / is reproducible.
+The place for a versioned copy of the board's VIA layout. Nix does NOT apply it.
+VIA layouts live in the board flash, you re-import by hand in the VIA app.
 
-Note: nix does NOT apply this. VIA layouts live in the board flash; you re-import
-by hand in the VIA app. This is just a stored copy under version control.
+Umlauts (ä ö ü) and `~` are not on the board, karabiner does them in macOS, see
+`home/gui/karabiner/`.
 
-## Export (save current layout into the repo)
-1. Open the **VIA** app, board gets detected.
-2. Menu → export / the save icon → save as `keebwerk-mega.json`.
-3. Put that file next to this README and commit it.
-
-## Import (restore onto a board)
-1. Open **VIA**, board detected.
-2. Import → pick `keebwerk-mega.json`.
-
-## Files
-- `keebwerk-mega.json` — VIA keymap export (add after first export).
-
-## If you ever switch to Vial
-Needs Vial-QMK firmware flashed onto the board first (stock is VIA). Vial then
-exports a `.vil` file — store it here the same way. Not needed for umlauts/tilde,
-Karabiner covers that.
+Nothing is checked in yet, so the board's flash is the only copy. To change that,
+open VIA (it detects the board), save the layout next to this README and commit
+it. Going the other way, open VIA and import that file.

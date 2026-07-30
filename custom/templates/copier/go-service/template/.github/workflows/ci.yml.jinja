@@ -14,12 +14,33 @@ jobs:
           go-version: "{{ go_version }}"
       - run: go vet ./...
       - run: go test ./...
-
+{% raw %}
+  # push too, the local commit-msg hook is opportunistic
   commits:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # need history to lint the whole commit range
+      # a pr is checked out as a merge commit: HEAD~ is the base, HEAD^2 the
+      # branch tip. a push carries the commit it replaced, but that is the zero
+      # sha on a new branch and a gone object after a force push
+      - id: range
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            range='HEAD~..HEAD^2'
+          elif git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            range='${{ github.event.before }}..${{ github.sha }}'
+          else
+            # no usable before, so tip only. a new branch or force push can carry
+            # more, those get caught again on the pr
+            range='HEAD~..HEAD'
+          fi
+          echo "linting $range"
+          echo "range=$range" >>"$GITHUB_OUTPUT"
+      # auto-discovers ./committed.toml, same config the local hook uses
       - uses: crate-ci/committed@v1.1.11
+        with:
+          commits: ${{ steps.range.outputs.range }}
+{%- endraw %}

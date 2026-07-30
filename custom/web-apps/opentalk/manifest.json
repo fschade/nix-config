@@ -1,0 +1,14 @@
+{
+  "name": "OpenTalk",
+  "url": "https://meet.opentalk.eu/dashboard/",
+  "icon": "https://meet.opentalk.eu/icon-512x512.png",
+  "version": "1.0",
+  "author": "OpenTalk",
+  "description": "Video conferencing.",
+  "homepage": "https://opentalk.eu",
+  // room links are capability urls -> they live in the git-ignored
+  // manifest.local.json (merged on build), never in the tracked manifest
+  "links": [
+    { "title": "Home", "url": "https://meet.opentalk.eu/dashboard/", "section": "OpenCloud" }
+  ]
+}
