@@ -1,6 +1,7 @@
 #!/usr/bin/env swift
 #if os(macOS)
 import AppKit
+import CryptoKit
 
 // the web-app builder. one swift entrypoint, run with `swift web-app.swift <cmd>`:
 // it compiles the shared WKWebView host (every other .swift next to this script)
@@ -107,7 +108,18 @@ func stripJSONC(_ s: String) -> String {
     return out
 }
 
+// memoized by path: matches()/effectiveName() reload the same manifest several
+// times per run, and each reload reprinted the same parse error. one run never
+// sees a file change, so caching (nil included) is safe.
+var loadCache: [String: AppConfig?] = [:]
 func load(_ path: String) -> AppConfig? {
+    if let cached = loadCache[path] { return cached }
+    let result = loadUncached(path)
+    loadCache[path] = result
+    return result
+}
+
+func loadUncached(_ path: String) -> AppConfig? {
     guard let raw = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
     let data = Data(stripJSONC(raw).utf8)
     do { return try JSONDecoder().decode(AppConfig.self, from: data) } catch {
@@ -193,11 +205,13 @@ func buildIcon(source: String, background bg: CGColor, into bundle: String, slug
 
 // MARK: host + bundle building
 
-// compile the shared WKWebView host once into a temp dir, every bundle copies it.
-// the host is every .swift next to this script minus the two below, so new source
-// files (the AppDelegate is split across several) get picked up on their own.
+// compile the shared WKWebView host, every bundle copies it. cached under a
+// content hash in the user cache, so an unchanged source set skips the ~11s
+// swiftc run (deploy rebuilds the apps every time, the host almost never moves).
+// the host is every .swift next to this script minus the two below, so new
+// source files (the AppDelegate is split across several) get picked up on their
+// own.
 func compileHost() -> String {
-    let out = NSTemporaryDirectory() + "WebAppHost-\(UUID().uuidString)"
     // the builder + the dev manifest. a new .swift here that is NOT host code has
     // to be named twice: here, and in Package.swift's `exclude` for the xcode side.
     let notHost: Set<String> = ["web-app.swift", "Package.swift"]
@@ -206,12 +220,41 @@ func compileHost() -> String {
         .sorted()
         .map { "\(hereDir)/\($0)" }
     guard !sources.isEmpty else { die("web-app: no host sources in \(hereDir)") }
+
+    let optFlags = ["-O"]
+    let frameworks = ["-framework", "Cocoa", "-framework", "WebKit", "-framework", "UserNotifications"]
+
+    // key on what actually changes the binary: source contents, the toolchain and
+    // the flags. a swiftc upgrade or a flag edit misses the cache and recompiles.
+    var hasher = SHA256()
+    for path in sources {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+            die("web-app: cannot read host source \(path)")
+        }
+        hasher.update(data: data)
+    }
+    hasher.update(data: Data((optFlags + frameworks).joined(separator: " ").utf8))
+    hasher.update(data: Data(shellOutput("/usr/bin/swiftc", ["--version"]).out.utf8))
+    let key = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+
+    let cacheDir = (fm.urls(for: .cachesDirectory, in: .userDomainMask).first?.path
+        ?? NSTemporaryDirectory()) + "/web-app-host"
+    let cached = "\(cacheDir)/\(key)"
+    if fm.isExecutableFile(atPath: cached) {
+        print("web-app host: cache hit, skipping compile")
+        return cached
+    }
+
     print("compiling web-app host...")
-    let status = shell("/usr/bin/swiftc", ["-O"] + sources + [
-        "-o", out, "-framework", "Cocoa", "-framework", "WebKit", "-framework", "UserNotifications",
-    ], quiet: false)
+    let tmp = NSTemporaryDirectory() + "WebAppHost-\(UUID().uuidString)"
+    let status = shell("/usr/bin/swiftc", optFlags + sources + ["-o", tmp] + frameworks, quiet: false)
     guard status == 0 else { die("web-app: host compile failed (swiftc exit \(status))") }
-    return out
+    // stash it under the key. a parallel build that beat us to it is fine, and a
+    // cache dir we cant write to just means we run from the temp build this once.
+    try? fm.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
+    if fm.fileExists(atPath: cached) { try? fm.removeItem(atPath: cached) }
+    guard (try? fm.moveItem(atPath: tmp, toPath: cached)) != nil else { return tmp }
+    return cached
 }
 
 // resolve the manifest icon reference to a readable file: a remote https url gets
@@ -259,8 +302,14 @@ func resolveIcon(_ ref: String, appDir: String) -> String? {
 // name on success (for the built set + prune), nil when skipped.
 func buildApp(from appDir: String, hostBin: String, into outDir: String, register: Bool) -> String? {
     let manifest = "\(appDir)/manifest.json"
-    guard var cfg = load(manifest) else {
+    guard fm.fileExists(atPath: manifest) else {
         warn("web-app: no manifest.json in \(appDir), skipping")
+        return nil
+    }
+    // exists but load failed: load() already printed the parse error, dont
+    // mask it with "no manifest.json"
+    guard var cfg = load(manifest) else {
+        warn("web-app: \(manifest) could not be read or parsed, skipping")
         return nil
     }
     if let ov = load("\(appDir)/manifest.local.json") {
@@ -467,12 +516,16 @@ func cmdBuild(_ args: [String]) {
             paths.append(args[i]); i += 1
         }
     }
-    try? fm.createDirectory(atPath: outDir, withIntermediateDirectories: true)
+    // withIntermediateDirectories doesnt throw on an existing dir, so a throw
+    // here means outDir really cant be made: fail loud, else every app below
+    // fails with its own copy-item error and the cause is buried
+    do { try fm.createDirectory(atPath: outDir, withIntermediateDirectories: true) } catch {
+        die("web-app: cannot create output dir \(outDir): \(error)")
+    }
     // launchservices registration only makes sense for the install location
     let register = URL(fileURLWithPath: outDir).standardizedFileURL.path == "/Applications"
 
-    let host = compileHost()
-    defer { try? fm.removeItem(atPath: host) }
+    let host = compileHost() // cached across runs, dont delete it
     var built = Set<String>()
 
     // no path: build the host's managed set (allowlist governs) and prune apps that
@@ -485,9 +538,11 @@ func cmdBuild(_ args: [String]) {
         // known: a typo in local.webApps or an unreadable manifest would otherwise
         // uninstall a working app
         var canPrune = true
+        var anyFailed = false // a wanted app that didnt end up built, deploy should notice
         for filter in filters.sorted() where !folders.contains(where: { matches(folder: $0, filters: [filter]) }) {
             warn("web-app: allowlist entry '\(filter)' matches no app folder in \(webappsDir), keeping the installed apps")
             canPrune = false
+            anyFailed = true
         }
         for folder in folders {
             if let name = buildApp(from: "\(webappsDir)/\(folder)", hostBin: host, into: outDir, register: register) {
@@ -497,15 +552,20 @@ func cmdBuild(_ args: [String]) {
                 // a failed build (say, an icon download hiccup) must not take the
                 // existing, working install down with it
                 keep.insert("\(name).app")
+                anyFailed = true
             } else {
                 // no name either, the manifest is unreadable: we cant even tell
                 // which installed bundle belongs to this folder
                 warn("web-app: \(folder): build failed and its name is unreadable, keeping the installed apps")
                 canPrune = false
+                anyFailed = true
             }
         }
         if canPrune { prune(keep: keep, in: outDir) }
         print("done: \(built.sorted().joined(separator: " "))")
+        // deploy runs this under set -e: a wanted app that didnt build should fail
+        // the deploy, not pass green with the app missing or stale
+        if anyFailed { warn("web-app: some managed apps did not build (see above)"); exit(1) }
         return
     }
 
@@ -651,8 +711,7 @@ func cmdDmg(_ args: [String]) {
         die("web-app: dmg needs one app folder path, e.g. web-app dmg custom/web-apps/opentalk")
     }
     let appSrc = args[0]
-    let host = compileHost()
-    defer { try? fm.removeItem(atPath: host) }
+    let host = compileHost() // cached across runs, dont delete it
 
     let stage = NSTemporaryDirectory() + "web-app-dmg-\(UUID().uuidString)"
     defer { try? fm.removeItem(atPath: stage) }
@@ -724,7 +783,11 @@ func cmdDmg(_ args: [String]) {
 
     Or once in Terminal:  xattr -dr com.apple.quarantine "/Applications/\(name).app"
     """
-    try? steps.write(toFile: "\(mnt)/\(readme)", atomically: true, encoding: .utf8)
+    // the gatekeeper "open anyway" steps live in here, so a silent miss sends the
+    // recipient chasing a blocked app with no instructions
+    do { try steps.write(toFile: "\(mnt)/\(readme)", atomically: true, encoding: .utf8) } catch {
+        warn("web-app: could not write \(readme) into the dmg: \(error)")
+    }
 
     styleDMG(volume: stylingVol, appFile: appName, bgName: bgName, readme: readme)
 

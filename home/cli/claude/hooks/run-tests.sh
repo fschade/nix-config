@@ -111,6 +111,8 @@ cat ~/.git-credentials
 cat ~/.config/sops/age/keys.txt
 cat ~/.gnupg/secring.gpg
 cat ~/.docker/config.json
+cat ~/Library/Keychains/login.keychain-db
+strings ~/Library/Keychains/login.keychain-db
 less ~/.ssh/id_ed25519
 sed -n 1p ~/.ssh/id_ed25519
 sudo cat ~/.ssh/id_ed25519
@@ -181,6 +183,66 @@ for s in a b; do npx skills add foo -g; done @@ global skill install
 claude plugin install swift-lsp@claude-plugins-official
 claude plugin marketplace add anthropics/claude-plugins-official
 claude plugins install foo
+echo `git push`
+X=`git push`
+echo `git add -A`
+echo `git commit -a -m x`
+echo `kubectl delete pods --all`
+"git" add -A
+'git' add -A
+git "add" -A
+"git" add .
+"git" commit -am x
+"git" commit -n -m x
+kubectl delete namespaces prod
+kubectl delete ns/prod
+gh pr create --title x @@ posting to a forge
+gh pr create -R owner/repo -f @@ posting to a forge
+gh issue create --body x @@ posting to a forge
+gh issue comment 12 --body x @@ posting to a forge
+gh pr review 12 --approve @@ posting to a forge
+gh pr merge 12 --squash @@ posting to a forge
+gh release create v1.0.0 @@ posting to a forge
+gh gist create notes.md @@ posting to a forge
+gh repo fork owner/repo @@ posting to a forge
+gh secret set FOO --body x @@ posting to a forge
+glab mr create --title x @@ posting to a forge
+tea issue create @@ posting to a forge
+hub pull-request -m x @@ posting to a forge
+cd /repo && gh pr create @@ posting to a forge
+sh -c "gh issue create" @@ posting to a forge
+if true; then gh pr create; fi @@ posting to a forge
+gh api -X POST /repos/o/r/issues @@ write method
+gh api --method PATCH /repos/o/r @@ write method
+gh api repos/o/r/issues -f title=x @@ defaults to POST
+gh api graphql -f query=mutation @@ defaults to POST
+curl -X POST https://api.example.com/issues @@ http write
+curl --data '{"a":1}' https://api.example.com @@ http write
+curl -d @body.json https://api.example.com @@ curl -d/-F/-T
+curl -sd x https://api.example.com @@ curl -d/-F/-T
+curl -F file=@a.png https://api.example.com @@ curl -d/-F/-T
+curl -T dump.sql https://files.example.com @@ curl -d/-F/-T
+wget --post-data a=1 https://api.example.com @@ http write
+http POST https://api.example.com a=1 @@ http write
+xh PUT https://api.example.com @@ http write
+curl -d x http://localhost:3000 https://api.example.com @@ curl -d/-F/-T
+curl -d x http://localhost.example.com/x @@ curl -d/-F/-T
+curl -X POST http://localhost.example.com/x @@ http write
+npm publish @@ publishing a package
+pnpm publish --access public @@ publishing a package
+cargo publish @@ publishing a package
+twine upload dist/* @@ publishing a package
+gem push pkg.gem @@ publishing a package
+docker push ghcr.io/o/img:1 @@ pushing an image
+docker buildx build --push -t ghcr.io/o/img . @@ pushing an image
+nix copy --to s3://cache ./result @@ nix copy to a remote store
+cachix push mycache ./result @@ publishing a package
+brew bump-formula-pr --url x foo @@ opens a PR upstream
+sendmail -t < mail.txt @@ sending mail
+mail -s "subject" bob@example.com @@ sending mail
+msmtp bob@example.com @@ sending mail
+osascript -e 'tell application "Mail" to send outgoing' @@ applescript
+git send-email --to bob@example.com HEAD~1 @@ git send-email
 EOF
 
 # bash-guard: must pass
@@ -220,6 +282,7 @@ scp ~/.ssh/id_ed25519.pub host:
 gum confirm --recursive --force
 git log --grep pushed
 git commit -m "fix: retry the push handler"
+git commit -m "feat: git add -A explained"
 git -C /repo commit -m "fix: retry the push handler"
 git --no-pager log --grep push
 git -c core.pager=cat log --grep push
@@ -250,7 +313,91 @@ git commit --author="a b <a@example.com>" -m x
 git commit --allow-empty -m x
 claude plugin list
 claude mcp add serena -- serena start-mcp-server
+gh pr list
+gh pr view 12 --comments
+gh issue list --state closed
+gh pr diff 12
+gh repo clone owner/repo
+gh label list
+gh auth status
+gh api /repos/o/r/pulls
+gh api graphql --method GET -f query=x
+gh workflow run deploy.yml
+gh run rerun 123
+gh alias set co "pr checkout"
+gh config set editor vim
+hub issue list
+curl -X POST http://localhost:3000/api/users
+curl -d '{"a":1}' 127.0.0.1:8080/x
+curl -sd x localhost:8080/api
+curl -T dump.sql host.docker.internal:9000
+curl -X POST https://myapp.test/api
+curl -X PUT http://[::1]:8080/x
+http POST localhost:4000 a=1
+xh PUT localhost:8080/x
+wget --post-data a=1 http://localhost:8000
+curl -fsSL https://example.com/x.tar.gz -o x.tar.gz
+wget https://example.com/x.tar.gz
+http https://api.example.com/status
+docker pull ghcr.io/o/img:1
+docker system df
+npm run build
+git format-patch -1
+git commit -m "docs: how to gh pr create"
+git commit -m "chore: switch to docker push in CI"
+git commit -m "fix: curl -d handling"
 EOF
+
+# per-project outbound allowlist: .claude/outbound-hosts at the project root
+# widens the http write rules, found by walking up from the payload cwd. it
+# opens named hosts only, and only for the http clients, never the forge clis.
+bash_guard_cwd() {
+  jq -n --arg c "$1" --arg d "$2" '{cwd: $d, tool_input: {command: $c}}' |
+    bash ./bash-guard.sh >/dev/null 2>&1
+}
+proj="$tmp/proj"
+mkdir -p "$proj/sub/dir" "$proj/.claude"
+printf '# staging\napi.example.com\n\n' >"$proj/.claude/outbound-hosts"
+bash_guard_cwd 'curl -X POST https://api.example.com/x' "$proj/sub/dir"
+check 0 "pass:  outbound-hosts allows the listed host" $?
+bash_guard_cwd 'curl -d @body.json api.example.com/x' "$proj/sub/dir"
+check 0 "pass:  outbound-hosts allows the bare host too" $?
+bash_guard_cwd 'curl -X POST https://other.example.com/x' "$proj/sub/dir"
+check 2 "block: outbound-hosts leaves other hosts blocked" $?
+bash_guard_cwd 'curl -X POST https://evilapi.example.com/x' "$proj/sub/dir"
+check 2 "block: outbound-hosts entry is no suffix match" $?
+bash_guard_cwd 'gh pr create' "$proj/sub/dir"
+check 2 "block: outbound-hosts does not unlock the forge clis" $?
+bash_guard 'curl -X POST https://api.example.com/x'
+check 2 "block: the same write without the project file" $?
+
+# read-guard: the Read tool side of bash-guard's env rule. same names block,
+# the same templates pass, and a payload it cannot parse fails closed.
+read_guard() {
+  jq -n --arg f "$1" '{tool_input: {file_path: $f}}' | bash ./read-guard.sh >/dev/null 2>&1
+}
+read_guard /repo/.env
+check 2 "block: Read .env" $?
+read_guard /repo/.env.production
+check 2 "block: Read .env.production" $?
+read_guard /repo/config/.env
+check 2 "block: Read config/.env" $?
+read_guard /repo/.env.example
+check 0 "pass:  Read .env.example" $?
+read_guard /repo/.env.sample
+check 0 "pass:  Read .env.sample" $?
+read_guard /repo/.env.template
+check 0 "pass:  Read .env.template" $?
+read_guard /repo/.env.dist
+check 0 "pass:  Read .env.dist" $?
+read_guard /repo/.envrc
+check 0 "pass:  Read .envrc" $?
+read_guard /repo/README.md
+check 0 "pass:  Read a normal file" $?
+printf 'not json {' | bash ./read-guard.sh >/dev/null 2>&1
+check 2 "block: read-guard on an unreadable payload" $?
+printf '' | bash ./read-guard.sh >/dev/null 2>&1
+check 0 "pass:  read-guard on empty stdin" $?
 
 # test-guard
 tg() {
@@ -327,6 +474,49 @@ tg Write "$spec" '' 'it.skip("a", f)
 it.skip("b", f)'
 check 2 "block: write adds a skip to an existing file" $?
 
+# a test file that exists but cannot be read gives no old count to diff
+# against, so the write must fail closed instead of passing unchecked
+locked="$tmp/locked.test.ts"
+printf 'expect(1)\n' >"$locked"
+chmod 000 "$locked"
+tg Write "$locked" '' 'expect(2)'
+check 2 "block: write over an unreadable test file" $?
+chmod 644 "$locked"
+
+# a malformed payload must fail closed, any exit but 2 lets the edit through
+printf 'not json {' | bash ./test-guard.sh >/dev/null 2>&1
+check 2 "block: test-guard on an unreadable payload" $?
+
+# MultiEdit routes here via the Edit|Write matcher; a skip in any of its edits
+# must block, a clean one passes, and an unknown editing tool fails closed
+jq -n '{tool_name:"MultiEdit", tool_input:{file_path:"foo_test.go", edits:[{old_string:"x",new_string:"t.Skip(\"x\")"}]}}' |
+  bash ./test-guard.sh >/dev/null 2>&1
+check 2 "block: MultiEdit adds t.Skip" $?
+jq -n '{tool_name:"MultiEdit", tool_input:{file_path:"foo_test.go", edits:[{old_string:"a",new_string:"b"}]}}' |
+  bash ./test-guard.sh >/dev/null 2>&1
+check 0 "pass:  MultiEdit clean edit" $?
+jq -n '{tool_name:"WeirdEdit", tool_input:{file_path:"foo_test.go", content:"x"}}' |
+  bash ./test-guard.sh >/dev/null 2>&1
+check 2 "block: unknown editing tool on a test file" $?
+
+# NotebookEdit sends notebook_path and new_source, no old cell content, so any
+# marker in the new source blocks
+jq -n '{tool_name:"NotebookEdit", tool_input:{notebook_path:"/repo/foo.test.ipynb", new_source:"it.only(\"x\", f)"}}' |
+  bash ./test-guard.sh >/dev/null 2>&1
+check 2 "block: NotebookEdit adds .only to a test notebook" $?
+jq -n '{tool_name:"NotebookEdit", tool_input:{notebook_path:"/repo/foo.test.ipynb", new_source:"assert x == 1"}}' |
+  bash ./test-guard.sh >/dev/null 2>&1
+check 0 "pass:  NotebookEdit clean cell in a test notebook" $?
+jq -n '{tool_name:"NotebookEdit", tool_input:{notebook_path:"/repo/analysis.ipynb", new_source:"df.skip(1)"}}' |
+  bash ./test-guard.sh >/dev/null 2>&1
+check 0 "pass:  NotebookEdit on a non-test notebook" $?
+
+# pytest's other default layout, foo_test.py, not just test_foo.py
+tg Edit /repo/db_test.py '' 'pytest.skip("x")'
+check 2 "block: bare pytest.skip in a *_test.py file" $?
+tg Edit /repo/db_test.py '' 'if not db(): pytest.skip("no db")'
+check 0 "pass:  guarded pytest.skip in a *_test.py file" $?
+
 # audit-log, isolated HOME so the real log stays clean
 tmphome="$tmp/home"
 alog() {
@@ -344,22 +534,26 @@ alog 'for f in *.yaml; do kubectl apply -f $f; done'
 alog 'ls | xargs kubectl delete pod'
 alog 'find . -name "*.yaml" -exec kubectl apply -f {} \;'
 alog 'helm upgrade app ./chart'
+# a mutation split across a line continuation must still be logged
+alog 'kubectl \
+delete pod x -n prod'
 # one assertion over the whole log: the count alone can be right for the wrong
 # reason (one command dropped, another wrongly added cancel out). this pins the
 # count, the shape of every line, and that cmd is the raw command rather than
 # the quote-stripped scan buffer. -e fails on a false result or a missing file.
 if jq -es '
-  length == 8
+  length == 9
   and any(.[]; .cmd | startswith("for f in"))
   and any(.[]; .cmd | contains("xargs kubectl delete"))
   and any(.[]; .cmd | contains("-exec kubectl apply"))
+  and any(.[]; (.cmd | contains("kubectl")) and (.cmd | contains("delete pod x")) and (.cmd | contains("\n") | not))
   and all(.[]; has("ts") and (.ts | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*Z$")))
   and all(.[]; has("rc") | not)
   and all(.[]; .cmd | length > 0)
   and any(.[]; .cmd == "\"kubectl\" apply -f quoted.yaml")
   and all(.[]; .cmd | contains("\n") | not)
 ' "$tmphome/.claude/logs/mutations.jsonl" >/dev/null 2>&1; then rc=0; else rc=1; fi
-check 0 "audit: 8 lines, {ts,cmd}, quoted cli and batch shapes logged" "$rc"
+check 0 "audit: 9 lines, {ts,cmd}, quoted cli, batch and joined shapes logged" "$rc"
 
 # multi-line commands. the heredocs above are line based, so these live here.
 # grep matches per line, so without joining, a pattern spanning two tokens

@@ -42,6 +42,15 @@
             "command": "~/.claude/hooks/test-guard.sh"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/read-guard.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -70,7 +79,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "bash ~/.claude/statusline-command.sh"
+    "command": "sh ~/.claude/statusline-command.sh"
   },
   "permissions": {
     "allow": [
@@ -113,7 +122,13 @@
       "Bash(git push *)",
       "Bash(sudo *)",
       "Bash(mkfs *)",
+      "mcp__claude-in-chrome__form_input",
+      "mcp__claude-in-chrome__file_upload",
+      "mcp__claude-in-chrome__upload_image",
+      "mcp__claude-in-chrome__javascript_tool",
       "Edit(~/.claude/settings.json)",
+      "Edit(~/.claude/CLAUDE.md)",
+      "Edit(~/.claude/statusline-command.sh)",
       "Edit(~/.agents/**)",
       "Edit(~/.claude/skills/**)",
       "Edit(~/.claude/agents/**)",

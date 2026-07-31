@@ -180,7 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         window.title = title
         window.center()
         // the window remembers its own frame, so the manifest size only lands on a first
-        // run: `defaults delete <bundleid> NSWindow Frame WebAppMainWindow` to see it again
+        // run: `defaults delete <bundleid> "NSWindow Frame WebAppMainWindow"` to see it again
         window.setFrameAutosaveName("WebAppMainWindow")
         window.delegate = self
 

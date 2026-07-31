@@ -2,9 +2,6 @@
   homebrew = {
     # taps are pinned in homebrew.nix via nix-homebrew.
     brews = [
-      # nix-darwin writes the mas lines into the Brewfile but not the cli that
-      # reads them, so without this the masApps block below does nothing.
-      "mas"
       "mole" # deep clean and optimize your mac
     ];
 
@@ -71,17 +68,11 @@
       "appcleaner"
       "puremac" # open-source app manager + system cleaner
 
-      # casks from non-official taps. we trust the single cask, not the whole
-      # tap. per-cask trust only works with full name user/tap/cask.
-      # https://docs.brew.sh/Tap-Trust
-      {
-        name = "nikitabobko/tap/aerospace";
-        trusted = true;
-      }
-      {
-        name = "sozercan/repo/kaset"; # yt-music
-        trusted = true;
-      }
+      # casks from non-official taps. the full name user/tap/cask is what scopes
+      # trust to the single cask instead of the whole tap (trusted is on by
+      # default). https://docs.brew.sh/Tap-Trust
+      "nikitabobko/tap/aerospace"
+      "sozercan/repo/kaset" # yt-music
     ];
   };
 }

@@ -20,9 +20,9 @@
       macos-option-as-alt = false;
 
       background-opacity = 0.93;
-      # only on macos
-      background-blur-radius = 10;
-      scrollback-limit = 20000;
+      # background-blur-radius is the old name, ghostty resolves it to
+      # background-blur and drops the alias silently one day, so use the new key.
+      background-blur = 10;
     };
   };
 }

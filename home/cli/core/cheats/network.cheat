@@ -10,7 +10,7 @@ lsof -nP -iTCP -sTCP:LISTEN
 ss -tlnp
 
 # Kill whatever is listening on a port
-lsof -ti :<port> | xargs kill -9
+lsof -ti :<port> | xargs -r kill -9
 
 # Is a remote host:port reachable?
 nc -zv <host> <port>

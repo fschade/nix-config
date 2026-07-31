@@ -66,7 +66,7 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
         titleCol.title = "Title"; titleCol.width = 120; titleCol.isEditable = true
         let sectionCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("section"))
         sectionCol.title = "Section"; sectionCol.width = 110; sectionCol.isEditable = true
-        sectionCol.headerToolTip = "Optional group heading; links with the same text sit under one heading"
+        sectionCol.headerToolTip = "Optional group heading; adjacent rows with the same section sit under one heading"
         let urlCol = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("url"))
         urlCol.title = "URL"; urlCol.width = 236; urlCol.isEditable = true
         table.addTableColumn(titleCol)

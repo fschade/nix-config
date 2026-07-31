@@ -4,10 +4,10 @@ pre-commit:
       glob: "*.go"
       run: gofmt -w {staged_files}
       stage_fixed: true
-    vet:
-      run: go vet ./...
+    lint:
+      run: mise run lint
 
-# Conventional-commit linting. committed auto-discovers ./committed.toml.
+# conventional-commit linting. committed auto-discovers ./committed.toml
 commit-msg:
   commands:
     committed:

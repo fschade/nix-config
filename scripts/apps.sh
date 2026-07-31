@@ -9,9 +9,14 @@ user="$(id -un)"
 casks=0
 
 if [ "$(uname)" = "Darwin" ]; then
-  # only one darwin host config, so just take its name
-  cfg="$(nix eval --no-warn-dirty --raw "${flake}#darwinConfigurations" \
-    --apply 'c: builtins.head (builtins.attrNames c)')"
+  # this machine's darwin config, keyed by short hostname like deploy.sh does
+  cfg="$(hostname -s)"
+  known="$(nix eval --no-warn-dirty --json "${flake}#darwinConfigurations" --apply 'builtins.attrNames')"
+  if ! printf '%s' "$known" | grep -qF "\"${cfg}\""; then
+    echo "No darwinConfigurations entry for '${cfg}'." >&2
+    echo "Known: ${known}" >&2
+    exit 1
+  fi
   attr="darwinConfigurations.\"${cfg}\".config.home-manager.users.\"${user}\".home.packages"
   casks=1
 else

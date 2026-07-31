@@ -19,7 +19,7 @@
     # shared on every darwin host. host-only items (e.g. TickTick) get added
     # in the host file and merge into this list.
     local.loginItems = [
-      # raycast autostart is a launchd agent instead (see home/os/darwin.nix),
+      # raycast autostart is a launchd agent instead (see home/gui/raycast.nix),
       # the legacy login-item api is flaky and raycast self-registers anyway.
       "/Applications/AltTab.app" # ⌥Tab window switcher, must run so the hotkey work
       "/Applications/BetterDisplay.app"

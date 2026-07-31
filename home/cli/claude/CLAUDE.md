@@ -5,10 +5,15 @@ this.
 
 ## Communication
 
-- Mirror my language: reply in German when I write German, in English when I
-  write English. Code, comments, commit messages, and docs are always English.
+- Mirror my language: detect the language I write in and reply in it, whatever
+  it is. Code, comments, commit messages and docs stay English regardless.
 - Be direct and concise. Lead with the result, then the reasoning. No filler, no
   cheerleading.
+- State, not history. Say what is true now, not how it got there: no "first X,
+  then Y", no account of the attempts before the one that worked, in replies,
+  docs and commit messages alike. The path only goes in when I need it to decide
+  something, and then in a sentence. Same rule for code lives in
+  `rules/comments.md` and the evergreen-names point in `rules/hygiene.md`.
 
 ## Working style
 
@@ -29,13 +34,19 @@ this.
 - Auto memory is a scratch pad, not an archive. It is machine-local and in no
   repo, so nothing a second machine would need may live only there. Once a note
   turns out to be durable, put it where it belongs and delete the memory: a rule
-  for every project into this file or `rules/`, a convention of one project into
-  that project's CLAUDE.md, something about this machine into MANUAL.md. What
-  stays in memory is what only the current thread needs.
+  for every project into `home/cli/claude/CLAUDE.md` or `home/cli/claude/rules/`
+  in nix-config (never the deployed `~/.claude` copy, a switch overwrites it), a
+  convention of one project into that project's CLAUDE.md, something about this
+  machine into nix-config's MANUAL.md. What stays in memory is what only the
+  current thread needs.
 
 ## Code style
 
-- Match the surrounding code: naming, idioms, formatting, comment density.
+- Match the surrounding code: naming, idioms, formatting, comment density. This
+  holds across sessions, not just within a file: read what is already there and
+  write like it, so the repo reads as one hand, not a stack of visiting styles.
+  Where a repo has an established style, it wins over any default, including the
+  comment voice in `rules/comments.md`.
 - Comments: voice, failure modes and examples are in `rules/comments.md`.
 - Three dots, not the ellipsis character: write `...` everywhere, no exception.
   I hate `…`. macOS menu labels included, the HIG wants the single glyph there
@@ -48,7 +59,8 @@ this.
   one: no compat shims, no dual code paths, unless I ask for a migration.
 - Never invent technical details: versions, env vars, API endpoints, config
   keys, CLI flags. Look them up or say you don't know (via harperreed/dotfiles,
-  thanks).
+  thanks). Where to look and what to do when it isn't findable:
+  `rules/research.md`.
 
 ## Git & deployment
 
@@ -73,12 +85,39 @@ this.
   `refactor:`, `test:`), lowercase, terse, no trailing period. Only exception:
   repos with a clearly different established convention (e.g. nixpkgs'
   `pkg: 1.2 -> 1.3`), then follow theirs.
+- Default to subject only. A body only for a why the diff doesn't show, then one
+  or two lines. No listing the what per file, the diff already does that. No
+  novels.
 - NEVER add Co-Authored-By, "Generated with", or any other Claude/AI attribution
   to commits or PRs. No trailers, no footers. The message ends with its content.
-- Commit messages and PR text in plain, factual language. A bug fix is a bug
-  fix, not a "critical stability improvement". Avoid: critical, crucial,
-  essential, significant, comprehensive, robust, elegant.
+- Commit messages and PR text in plain, factual language, same voice as
+  `rules/comments.md`: a human reads it and gets it, not wades through it. A bug
+  fix is a bug fix, not a "critical stability improvement". Avoid the inflated
+  words: critical, crucial, essential, significant, comprehensive, robust,
+  elegant.
 - Never rewrite history on shared branches.
+
+## Nothing goes outward
+
+- Nothing you do ever posts in my name. No PR, no issue, no comment, no review,
+  no release, no published package, no mail, no forum or social post, nowhere,
+  never. Not on your own initiative and not on request: I send those myself,
+  same as pushing. Don't look for the way around it either, not through the api,
+  not through a wrapper, not through the browser. When something genuinely has
+  to go out, say so in your reply and leave it to me.
+- Drafting is fine and is the whole job here: the PR text, the issue body, the
+  release notes, the mail, into a file or into your reply. Sending is mine.
+- Local dev is not outward: http writes to localhost, 127.x, ::1,
+  host.docker.internal or a `.test` / `.localhost` host are api testing and
+  stay open. A project widens that with `.claude/outbound-hosts` at its root,
+  one host per line; I put hosts there, you don't. Triggering my own CI
+  (`gh workflow run`, `gh run rerun`) counts as local too.
+- The shell side is guarded (`hooks/bash-guard.sh`), the browser side cannot be:
+  the Chrome tools only see a tab id, so no hook can tell whether a click lands
+  on localhost or on github.com. There you read, navigate, screenshot and check
+  the console. Typing into a page and submitting it is local dev only
+  (localhost, 127.0.0.1, a `*.test` host). On anything public you submit no
+  form, post no comment and confirm no dialog that writes.
 
 ## Environment
 
@@ -89,15 +128,14 @@ this.
   `~/.claude/CLAUDE.md` directly. Change the repo copies and tell me to deploy.
   Project-specific permission extensions go into the project's own
   `.claude/settings.json` / `.claude/settings.local.json`.
-- Global skills and subagents are declared in `home/cli/claude/default.nix`
-  (pinned flake inputs). Every config surface is a read-only store path:
-  `~/.claude/skills`, `~/.claude/agents`, `~/.claude/commands`,
-  `~/.claude/plugins`, `~/.agents`. So no `npx skills add -g`, no
-  `claude plugin install`: to add something, declare it there and tell me to
-  deploy. Language servers go into settings.json under `lspServers`, not via a
-  plugin. Project-scoped skills and agents (`<repo>/.claude/skills`,
-  `<repo>/.claude/agents`, `<repo>/.agents/skills`) are yours to install as you
-  like.
+- Global skills and subagents are declared in nix-config
+  (`home/cli/claude/default.nix`, pinned flake inputs). Every config surface is
+  a read-only store path: `~/.claude/skills`, `~/.claude/agents`,
+  `~/.claude/commands`, `~/.claude/plugins`, `~/.agents`. So no
+  `npx skills add -g`, no `claude plugin install`: to add something, declare it
+  there and tell me to deploy. Language servers go into settings.json under
+  `lspServers`, not via a plugin. Project-scoped skills and agents
+  (`<repo>/.claude/skills`, `<repo>/.claude/agents`, `<repo>/.agents/skills`)
+  are yours to install as you like.
 - Preferred task runner: mise (`mise run <task>`). Check mise.toml for how to
   build/test/deploy before inventing commands.
-- Homelab: Proxmox hosts + Kubernetes, config in `~/Developer/fschade/homelab`.

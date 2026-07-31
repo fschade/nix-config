@@ -20,7 +20,7 @@
     p7zip
 
     # text processing
-    # Docs: https://github.com/learnbyexample/Command-line-text-processing
+    # docs: https://github.com/learnbyexample/Command-line-text-processing
     gnugrep # GNU grep, gives `grep`/`egrep`/`fgrep`
     gawk # GNU awk, pattern scanning language
     gnutar
@@ -38,7 +38,6 @@
     eza # modern ls
     (ripgrep.override {withPCRE2 = true;}) # search by content, better grep
     ripgrep-all # `rga`: ripgrep that also search PDFs, docx, sqlite, archives
-    broot # `br`: fuzzy tree navigator + file launcher
 
     # disk usage
     duf # better df

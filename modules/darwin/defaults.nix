@@ -2,7 +2,11 @@
   pkgs,
   vars,
   ...
-}: {
+}: let
+  # one source of truth: screencapture.location below and the postactivation
+  # script (which makes the folder) both take this.
+  screenshotsDir = "/Users/${vars.user.name}/Pictures/Screenshots";
+in {
   system = {
     startup.chime = false;
 
@@ -61,7 +65,7 @@
       };
 
       screencapture = {
-        location = "/Users/${vars.user.name}/Pictures/Screenshots"; # not the desktop
+        location = screenshotsDir; # not the desktop
         type = "png";
         disable-shadow = true; # no drop shadow on window capture
         show-thumbnail = false; # save straight to disk, skip the bottom-right preview
@@ -128,7 +132,7 @@
       # before the script on purpose, it ends with activateSettings and that is what makes this take
       launchctl asuser "$(id -u -- ${vars.user.name})" sudo --user=${vars.user.name} -- defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 64 '<dict><key>enabled</key><false/></dict>'
 
-      ${pkgs.bash}/bin/bash ${../../custom/scripts/darwin/defaults-postactivation.sh} "${vars.user.name}" "${pkgs.mysides}/bin/mysides"
+      ${pkgs.bash}/bin/bash ${../../custom/scripts/darwin/defaults-postactivation.sh} "${vars.user.name}" "${pkgs.mysides}/bin/mysides" "${screenshotsDir}"
     '';
   };
 }

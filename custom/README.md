@@ -5,8 +5,10 @@ here it gets real syntax highlighting, shellcheck/yaml tooling and clean diffs;
 the `.nix` only references it.
 
 Rule of thumb: more than a few lines of shell, YAML, config or template text goes
-here and gets wired with `.source = ./...` or `builtins.readFile ./...`.
-One-liners stay inline.
+here and gets wired with `.source = ./...` or `builtins.readFile ./...`;
+one-liners stay inline. The exception is a script that belongs to exactly one
+module and travels with it: the claude hooks, the statusline and the sketchybar
+plugins live next to their `.nix` instead, not here.
 
 | Dir | What | Wired via |
 |---|---|---|

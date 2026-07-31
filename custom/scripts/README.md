@@ -13,3 +13,7 @@ pulls them in with `builtins.readFile` (sourced shell functions) or a store path
   Nix-computed values (store paths, usernames) come in as arguments.
 - Sourced functions use bare tool names from PATH (`docker`, `colima`),
   activation scripts use explicit `${pkgs.foo}/bin/foo` store paths.
+- Executable scripts here run under `set -eu`, not the `set -euo pipefail` of
+  `scripts/*.sh`: none of them pipes, so pipefail has nothing to catch.
+- `docker-use.zsh` carries neither shebang nor shellcheck directive on purpose:
+  the shell gate only collects bash/sh files, and shellcheck cannot lint zsh.

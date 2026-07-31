@@ -1,6 +1,10 @@
-# fmt auto-formats staged nix files and re-stages them, then check runs the full
+# fmt auto-formats staged nix files and re-stages them, then check runs the
 # gate: so formatting fixes itself instead of blocking the commit. `piped` +
-# priority keeps fmt strictly before check.
+# priority keeps the order.
+#
+# the guard-hook suite is ~250 cases, two process spawns each, 20s of the 22s a
+# commit took. it only covers the files in its glob, so it runs when those are
+# staged. every other commit skips it, ci runs the full `mise run check` anyway.
 pre-commit:
   piped: true
   commands:
@@ -11,7 +15,15 @@ pre-commit:
       stage_fixed: true
     check:
       priority: 2
+      env:
+        CHECK_SKIP_HOOK_TESTS: "1"
       run: mise run check
+    hook-tests:
+      priority: 3
+      glob:
+        - "home/cli/claude/hooks/*"
+        - "home/cli/claude/statusline-command.sh"
+      run: ./home/cli/claude/hooks/run-tests.sh
 
 commit-msg:
   commands:

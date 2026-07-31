@@ -7,14 +7,13 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   static:
     runs-on: ubuntu-latest
     name: static gates
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # gitleaks scans the full history, not just HEAD
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
@@ -28,7 +27,7 @@ jobs:
     # there is no range to compute there
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0 # need history to lint the whole commit range
       # a pr is checked out as a merge commit: HEAD~ is the base, HEAD^2 the
@@ -49,7 +48,7 @@ jobs:
           echo "linting $range"
           echo "range=$range" >>"$GITHUB_OUTPUT"
       # auto-discovers ./committed.toml, same config the local hook uses
-      - uses: crate-ci/committed@v1.1.11
+      - uses: crate-ci/committed@faeed42f2e10c244533a01525f13c4d8b6ce383f # v1.1.11
         with:
           commits: ${{ steps.range.outputs.range }}
 
@@ -62,7 +61,7 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
       - id: matrix
         run: |
@@ -90,8 +89,13 @@ jobs:
       matrix: ${{ fromJSON(needs.systems.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     name: flake check (${{ matrix.system }})
+    # job-level permissions replace the workflow set, so contents: read rides along.
+    # id-token only here, flakehub-cache-action is the sole consumer
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
       - uses: DeterminateSystems/flakehub-cache-action@77c6bddd7d747943530aaa578c57f233ee5d920e # v3.21.8
       - name: build ${{ matrix.system }} checks

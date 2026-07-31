@@ -1,5 +1,7 @@
-# Conventional Commits: https://www.conventionalcommits.org
-# Read by lefthook's commit-msg hook locally and by crate-ci/committed in CI.
+# conventional commits: https://www.conventionalcommits.org
+# read by lefthook's commit-msg hook locally and by crate-ci/committed in CI, so
+# both use the same rules. only values that diverge from committed's defaults are
+# set.
 style = "conventional"
 allowed_types = ["feat", "fix", "build", "ci", "test", "docs", "refactor", "perf", "style", "chore", "revert"]
 subject_capitalized = false

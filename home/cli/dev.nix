@@ -26,6 +26,7 @@
       gh-dash # TUI dashboard for GitHub PRs/issues
       gitleaks # scan for secrets (any repo)
       lefthook # git hooks manager (any repo)
+      shellcheck # shell linter (used by `mise run check`; the devShell has it too)
 
       # nix authoring helpers
       nix-init # generate a nix derivation from a url
@@ -74,8 +75,6 @@
       '';
     }
     (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-      "docker/cli-plugins/docker-compose".source = "${pkgs.docker-compose}/bin/docker-compose";
-
       # colima defaults for *new* instances only. to pick up changes:
       # `colima delete && colima start`
       "colima/_templates/default.yaml".source = ../../custom/config/colima/default.yaml;

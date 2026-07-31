@@ -73,6 +73,14 @@ first run needs approval, else ä ö ü ~ stay dead:
 - system settings > privacy & security > input monitoring > enable karabiner
 check it runs: `pgrep karabiner_grabber`.
 
+## aerospace (tiling wm)
+first run needs accessibility, else it cant move windows:
+- system settings > privacy & security > accessibility > enable AeroSpace
+
+check it runs: `aerospace list-workspaces --focused` (it errors with "Can't
+connect to AeroSpace server" when the daemon is down). a config change from a
+switch only takes after `aerospace reload-config`.
+
 ## keyboard layout (keebwerk mega, optional)
 export your VIA layout to custom/config/keyboard/keebwerk-mega.json to
 version it. see the readme there.

@@ -12,8 +12,8 @@ _docker_use_say() {
 }
 
 # DOCKER_CONTEXT beats the context we just set, so in a dir with `use docker` in
-# its .envrc the switch does nothing for this shell. the line above only talks
-# about the default context, this one says the shell wont follow it
+# its .envrc the switch does nothing for this shell. the checkmark at the call
+# site reports the default context; this warning says the shell wont follow it
 _docker_use_check_override() {
   if [ -n "${DOCKER_CONTEXT:-}" ] && [ "$DOCKER_CONTEXT" != "$1" ]; then
     _docker_use_say "! DOCKER_CONTEXT=$DOCKER_CONTEXT is set here (direnv \`use docker\` sets it, an export does too), docker in this shell keeps talking to $DOCKER_CONTEXT"
@@ -26,15 +26,17 @@ _docker_use_poll='i=0; until docker --context "$CTX" info >/dev/null 2>&1; do i=
 
 docker-use-colima() {
   _docker_use_say "-> switching to Colima"
+  # stop errors when orb is not running, which is the state we want anyway
   command -v orb >/dev/null 2>&1 && orb stop 2>/dev/null
   colima start || return 1
-  docker context use colima >/dev/null
+  docker context use colima >/dev/null || return 1
   _docker_use_say "✓ colima up, default docker context is colima"
   _docker_use_check_override colima
 }
 
 docker-use-orb() {
   _docker_use_say "-> switching to OrbStack"
+  # same as orb stop above: already stopped is fine
   colima stop 2>/dev/null
   open -ga OrbStack || {
     echo "OrbStack not installed? run your rebuild first"
@@ -47,7 +49,7 @@ docker-use-orb() {
     CTX=orbstack sh -c "$_docker_use_poll" ||
       { echo "OrbStack didn't come up within 30s"; return 1; }
   fi
-  docker context use orbstack >/dev/null
+  docker context use orbstack >/dev/null || return 1
   _docker_use_say "✓ orbstack up, default docker context is orbstack"
   _docker_use_check_override orbstack
 }

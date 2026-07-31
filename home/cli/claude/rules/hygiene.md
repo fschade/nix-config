@@ -25,3 +25,20 @@
   computing it in the reply (via jbarbier/CLAUDE.md, thanks).
 - Snapshot before bulk data changes: dump what a migration or backfill will
   touch to a file first (via jbarbier/CLAUDE.md, thanks).
+- Don't name a gitignored path from tracked code, docs or comments. A `tmp/`,
+  a `dist/`, a `.direnv/` is scratch or build output, gone on a fresh checkout,
+  so anything committed that points at one is a hidden coupling that breaks
+  where the file isn't. Scratch output goes to scratch, but the tracked side
+  never mentions where. The git dir (`.git/`) is not a gitignored path, it is
+  always there, so it is a fine home for a tool's own scratch.
+- One-way wall between AI config and the repo. AI-facing files (CLAUDE.md,
+  AGENTS.md, `.claude/`, `.agents/`, rules, skills, agents, hooks, memory) may
+  name each other and any repo file freely. Nothing repo-facing points back:
+  no code, comment, doc, script, identifier, commit message or PR text
+  references an AI file. A README never says "see CLAUDE.md", a comment never
+  cites a rule file as its why, an ADR never quotes an agent instruction. When
+  a why lives only in an AI file, restate it in place instead of pointing at
+  it. This is separation, not secrecy: the AI files may sit visibly in the
+  tree, the repo artifacts just never lean on them. Only where AI
+  config is itself the subject (a repo that ships it, a commit that changes
+  `.claude/`) is naming it payload, not bleed.

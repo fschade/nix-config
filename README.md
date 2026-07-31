@@ -29,7 +29,7 @@ nix run home-manager/master -- switch -b backup --flake .#$USER@$HOST
 mise run deploy [target]   # build + switch (default: this machine)
 mise run rollback          # macOS: previous generation. linux: lists them, you pick
 mise run gc [30d]          # drop generations older than that, then collect the store
-mise run check             # fmt + lint + secret gates + the claude hook tests
+mise run check             # fmt check + lint + swift parse + secret gates + the claude hook tests
 mise run fmt               # format nix files
 mise run apps              # list the apps/CLIs you declared (nix packages + casks)
 mise run flake-update      # bump inputs (skips the churny homebrew taps)

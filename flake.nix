@@ -54,7 +54,9 @@
       flake = false;
     };
 
-    # declarative homebrew: install brew and pin every tap as flake input (see modules/darwin/homebrew.nix). source trees, not flakes.
+    # declarative homebrew: install brew and pin every tap as flake input (see
+    # modules/darwin/homebrew.nix). the taps below carry `flake = false`, they are
+    # source trees; nix-homebrew itself is a normal flake.
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
       # nix-homebrew pins brew to a hard tag and lags behind releases, so brew
@@ -174,7 +176,7 @@
 
     mkHome = {
       host,
-      system ? "x86_64-linux",
+      system,
     }:
       home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {

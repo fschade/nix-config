@@ -56,7 +56,12 @@ else
     # switch reconciled login items before it, so it warned that one missing.
     # reconcile once more, it is idempotent and now the app is there.
     if [ -f /etc/login-items ]; then
-      mapfile -t items </etc/login-items
+      # read loop, not mapfile: a fresh machine runs this under /bin/bash 3.2.
+      # the `|| [ -n ]` keeps a last line without trailing newline
+      items=()
+      while IFS= read -r line || [ -n "$line" ]; do
+        items+=("$line")
+      done </etc/login-items
       sudo bash ./custom/scripts/darwin/login-items.sh "$(id -un)" "${items[@]}"
     fi
   else

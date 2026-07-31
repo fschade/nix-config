@@ -25,7 +25,7 @@ raw = true
 run = "swift ./tools/web-app/web-app.swift"
 
 [tasks.check]
-description = "Run all static gates in check mode (what CI runs)"
+description = "Run the static gates (nix, shell, swift, secrets, hooks) in check mode"
 run = "./scripts/check.sh"
 
 [tasks.fmt]
@@ -39,9 +39,14 @@ run = "./scripts/flake-update.sh"
 
 [tasks.brew-update]
 description = "Bump the pinned homebrew taps (deploy after, to pull the new formulae/casks)"
-# brew-src is pinned to a version tag, so it only re-locks, it doesnt move. bump
-# brew itself by editing that tag in flake.nix, together with the taps.
-run = "nix flake update brew-src homebrew-core homebrew-cask homebrew-nikitabobko homebrew-sozercan"
+# taps derived from the flake inputs (every homebrew-* one), so a new tap is
+# picked up here automatically instead of drifting. brew-src is pinned to a
+# version tag, so it only re-locks, it doesnt move: bump brew itself by editing
+# that tag in flake.nix.
+run = """
+taps=$(nix flake metadata --json | jq -r '.locks.nodes.root.inputs | keys[] | select(startswith("homebrew-"))')
+nix flake update brew-src $taps
+"""
 
 [tasks.apps]
 description = "List the apps/CLIs you declared (nix packages + brew casks)"

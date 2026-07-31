@@ -19,10 +19,10 @@ in {
   home.file."Pictures/Wallpapers/${wallpaper.file}".source = wallpaper.source;
 
   # apply it. macos uses desktoppr after the file is linked (writeBoundary). a future linux
-  # desktop add its own setter here (swaybg/gsettings), image above is shared.
+  # desktop adds its own setter here (swaybg/gsettings), image above is shared.
   home.activation.setWallpaper = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
     lib.hm.dag.entryAfter ["writeBoundary"] ''
-      ${pkgs.bash}/bin/bash ${../../custom/scripts/darwin/set-wallpaper.sh} ${pkgs.desktoppr}/bin/desktoppr "${path}" ${wallpaper.color} ${wallpaper.scale}
+      $DRY_RUN_CMD ${pkgs.bash}/bin/bash ${../../custom/scripts/darwin/set-wallpaper.sh} ${pkgs.desktoppr}/bin/desktoppr "${path}" ${wallpaper.color} ${wallpaper.scale}
     ''
   );
 }

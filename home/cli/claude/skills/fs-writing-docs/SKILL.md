@@ -13,6 +13,11 @@ Pick the type first, then write only that type.
 The four types and the two questions below are the diátaxis framework, borrowed
 with thanks from diataxis.fr (Daniele Procida). Wording here is our own.
 
+Fixing an existing doc, not writing a new one? Its type and its place are
+already set, so skip §1 and §5. Go to the shape that type needs (§2) and the
+voice (§3), and touch only what is wrong. Reader-test and humanize only what you
+changed.
+
 ## 1. Pick the type
 
 Ask two things about the reader:
@@ -58,6 +63,10 @@ what for, how the pieces relate. No steps.
   documentation.
 
 ## 4. Reader-test it
+
+Worth a subagent for a doc someone follows start to finish: a how-to, a
+tutorial, a real explanation. A one-paragraph fix or a reference tweak does not
+need one, read it back yourself.
 
 The doc is done when someone who was not in the room can use it. Dispatch a
 subagent with none of this session's context, hand it only the doc and the task

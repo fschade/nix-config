@@ -40,7 +40,7 @@ if [ -d "$layouts" ]; then
       rm -rf "$dir"
       stale=$((stale + 1))
     fi
-  done < <(find "$layouts" -name 'flake-profile-*' ! -name '*.rc' 2>/dev/null)
+  done < <(find "$layouts" -name 'flake-profile-*' ! -name '*.rc')
   [ "$stale" -gt 0 ] && printf 'dropped %s direnv layout(s) whose project is gone\n\n' "$stale"
 fi
 

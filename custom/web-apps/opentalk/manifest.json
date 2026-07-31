@@ -9,6 +9,6 @@
   // room links are capability urls -> they live in the git-ignored
   // manifest.local.json (merged on build), never in the tracked manifest
   "links": [
-    { "title": "Home", "url": "https://meet.opentalk.eu/dashboard/", "section": "OpenCloud" }
+    { "title": "Home", "url": "https://meet.opentalk.eu/dashboard/" }
   ]
 }

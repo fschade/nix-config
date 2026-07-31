@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# claude code PreToolUse guard for Bash. blocks destructive command shapes that
-# plain deny globs cant catch (flag permutations, compound commands, sh -c
-# wrappers. we scan the whole command string, so wrapped one-liners match too).
+# claude code PreToolUse guard for Bash. blocks destructive and outward-facing
+# command shapes that plain deny globs cant catch (flag permutations, compound
+# commands, sh -c wrappers. we scan the whole command string, so wrapped
+# one-liners match too).
 # input: tool call json on stdin. block: message on stderr + exit 2.
 #
 # patterns borrowed with thanks from:
@@ -18,8 +19,10 @@ block() {
 
 # every exit code except 2 lets the call through, so a payload we cannot read has
 # to end in a block: no command parsed means no command checked. an empty payload
-# is a different thing, there is simply nothing in it to check.
-cmd="$(jq -r '.tool_input.command // empty')" ||
+# is a different thing, there is simply nothing in it to check. the payload is
+# kept whole, the outward rules below also need its cwd.
+json="$(cat)"
+cmd="$(jq -r '.tool_input.command // empty' <<<"$json")" ||
   block "unreadable hook input. the guard does not let through what it cannot parse."
 [ -z "$cmd" ] && exit 0
 
@@ -45,7 +48,9 @@ hasC() { grep -qE "$1" <<<"$scan"; } # case sensitive, for -D vs -d style flags
 # what ends a word for the rules that need to see the end of one. a separator
 # ends it just like a space or the line end does: `then git push; fi` and
 # `do kubectl delete pods --all; done` have nothing but the `;` after the token.
-end='([[:space:];|&)]|$)'
+# a closing command-substitution backtick counts too, or a token pressed against
+# it (echo backtick-git push-backtick) slips every rule that uses this class.
+end='([[:space:];|&`)]|$)'
 
 # rm with recursive+force in any flag spelling. rm is matched as a word, not
 # anchored on a separator: an anchor misses everything with something in front,
@@ -90,8 +95,12 @@ has "${gitpre}reset[[:space:]]+[^;|&]*--hard" &&
 #
 # these three scan a copy with quoted spans dropped: a commit message may talk
 # about `git add -A` or `--all` without being one, and that message is exactly
-# what gets written when this rule fires.
-bare="$(sed -E 's/"[^"]*"//g; s/'"'"'[^'"'"']*'"'"'//g' <<<"$cmd")"
+# what gets written when this rule fires. but dropping every quoted span also
+# drops a quoted command name (`"git" add -A`), which then walks past every rule.
+# so unquote the single-token quoted words first (no space inside), and only
+# then drop the remaining multi-word spans, which is where the messages live.
+bare="$(sed -E 's/"([^" ]*)"/\1/g; s/"[^"]*"//g' <<<"$cmd" |
+  sed -E "s/'([^' ]*)'/\1/g; s/'[^']*'//g")"
 grep -qE "${gitpre}add[^;|&]*([^-]-[a-zA-Z]*A[a-zA-Z]*|[[:space:]]--all)${end}" <<<"$bare" &&
   block "git add -A stages everything in the tree. name the paths of this change."
 grep -qE "${gitpre}add[[:space:]]+([^;|&]*[[:space:]])?(--[[:space:]]+)?\.${end}" <<<"$bare" &&
@@ -113,7 +122,7 @@ has 'git[[:space:]][^;|&]*--no-(verify|hooks|pre-commit-hook)' &&
 grep -qE "${gitpre}commit[^;|&]*[^-]-[a-z]*n[a-z]*${end}" <<<"$bare" &&
   block "git commit -n is the short form of --no-verify. fix what the hook complains about."
 
-has "kubectl[[:space:]]+delete[[:space:]]+(ns|namespace)${end}" &&
+has "kubectl[[:space:]]+delete[[:space:]]+(ns|namespaces?)([[:space:]/]|$)" &&
   block "kubectl delete namespace."
 has "kubectl[[:space:]]+delete[[:space:]]+[^;|&]*--all${end}" &&
   block "kubectl delete --all."
@@ -133,7 +142,7 @@ has "(curl|wget)[[:space:]][^;&]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z|da|fi)?s
 # inside a then/do block. both rules need a reader AND a secret path in the same
 # line, so the loose match costs little.
 readers='(cat|bat|less|more|head|tail|strings|base64|xxd|od|hexdump|grep|rg|awk|sed)'
-secretpaths='(~|\$HOME|/Users/[^/[:space:]]+)/\.(ssh/|aws/|gnupg/|kube/|config/sops/|config/gh/|docker/config\.json|git-credentials|npmrc)'
+secretpaths='(~|\$HOME|/Users/[^/[:space:]]+)/(\.(ssh/|aws/|gnupg/|kube/|config/sops/|config/gh/|docker/config\.json|git-credentials|npmrc)|Library/Keychains/)'
 has "(^|[^a-z0-9_-])${readers}[[:space:]][^;|&]*${secretpaths}" &&
   block "reading credential files via shell. those paths are off limits."
 # the exception belongs to a name, not to the command: naming a template next to
@@ -166,5 +175,114 @@ has '(^|[^a-z0-9_/.-])dd[[:space:]]+[^;|&]*of=/dev/(disk|rdisk|sd|nvme)' &&
   block "dd onto a block device."
 has ':\(\)[[:space:]]*\{[[:space:]]*:\|:' &&
   block "fork bomb."
+
+# nothing goes outward. these shapes are not destructive, they are public: a PR,
+# an issue, a comment, a release, a published package, a mail. sending one is
+# the user's, never ours, same deal as push.
+#
+# they read the message-blanked copy the push rule builds, so `git commit -m
+# "docs: how to gh pr create"` stays prose. quoted spans are still in it, a
+# wrapped `sh -c "gh pr create"` is still a create.
+out="$nomsg"$'\n'"${nomsg//[\'\"]/}"
+hasO() { grep -qiE "$1" <<<"$out"; }
+
+# forge clis: object plus write verb, glued together in that order. the read
+# side (`gh pr list`, `gh issue view`, `glab mr diff`) keeps working, and a verb
+# that only appears in an argument (`gh pr list --state closed`) is not a write.
+# alias/config are local, not the forge, so their object gets blanked before
+# the verb rule looks: `gh alias set` and `gh config set` stay usable. `run`
+# and `rerun` are not in the verb list, triggering the user's own ci (`gh
+# workflow run`, `gh run rerun`) is not posting.
+outF="$(sed -E 's/(gh|glab|tea|hub)([[:space:]]+)(alias|config)[[:space:]]/\1\2_ /g' <<<"$out")"
+forgeverb='(create|new|comment|edit|delete|close|reopen|merge|review|approve|ready|publish|upload|transfer|rename|pin|lock|dispatch|sync|set|add|fork)'
+grep -qiE "(^|[^a-z0-9_-])(gh|glab|tea|hub)[[:space:]]+[a-z-]+[[:space:]]+${forgeverb}${end}" <<<"$outF" &&
+  block "posting to a forge. PRs, issues, comments, releases are the user's to send, never yours."
+# hub skips the object, `hub pull-request` opens one on its own
+hasO "(^|[^a-z0-9_-])hub[[:space:]]+(pull-request|fork|create)${end}" &&
+  block "posting to a forge. PRs, issues, comments, releases are the user's to send, never yours."
+
+# the api is the way around every rule above, so it gets the same treatment
+ghapi="(^|[^a-z0-9_-])(gh|glab)[[:space:]]+api[[:space:]]"
+method="(-X|--method)[[:space:]]*=?[[:space:]]*"
+hasO "${ghapi}[^;|&]*${method}(POST|PUT|PATCH|DELETE)" &&
+  block "gh api with a write method. reading the api is fine, writing is not."
+# a field flips gh api to POST by itself (`gh api --help` says so), so the read
+# form of a graphql query has to spell out --method GET.
+if hasO "$ghapi" && ! hasO "${method}GET" &&
+  hasO "${ghapi}([^;|&]*[[:space:]])?(-f|-F|--field|--raw-field|--input)([[:space:]]|=)"; then
+  block "gh api with fields defaults to POST. add --method GET if you meant to read."
+fi
+
+# a write to a dev host is api testing, not posting: localhost, loopback,
+# docker's name for the host machine, the tlds reserved for local use (.test,
+# .localhost, rfc 6761). a project widens this with .claude/outbound-hosts at
+# its root, one host per line, # comments and blanks skipped, found by walking
+# up from the payload cwd. project settings.json cant do it, an allow rule
+# never overrides a blocking hook.
+#
+# the check is textual and guards intent, not an adversary: the command must
+# name an allowed host and no scheme url to anywhere else. a bare remote
+# domain sitting next to a local url slips.
+okhosts='localhost|127\.[0-9]+\.[0-9]+\.[0-9]+|\[?::1\]?|0\.0\.0\.0|host\.docker\.internal|[a-z0-9.-]+\.(test|localhost)'
+d="$(jq -r '.cwd // empty' <<<"$json")"
+while [ -n "$d" ] && [ "$d" != "/" ]; do
+  if [ -f "$d/.claude/outbound-hosts" ]; then
+    hosts="$(tr '[:upper:]' '[:lower:]' <"$d/.claude/outbound-hosts" |
+      grep -vE '^[[:space:]]*(#|$)' | sed 's/\./\\./g' | paste -sd '|' - || true)"
+    [ -n "$hosts" ] && okhosts="$okhosts|$hosts"
+    break
+  fi
+  d="$(dirname "$d")"
+done
+localWrite() {
+  local low
+  low="$(tr '[:upper:]' '[:lower:]' <<<"$out")"
+  # an allowed host must be named as a target, not buried in a longer name:
+  # something url-ish in front (start, space, quote, =, @, ://), a port, path
+  # or end behind. `localhost.example.com` matches neither side.
+  grep -qE "(^|[[:space:]\"'=@]|://)(${okhosts})([:/[:space:]\"']|$)" <<<"$low" || return 1
+  # then drop every allowed scheme url and see if a scheme to somewhere else
+  # remains. the boundary char after the host is consumed on purpose: without
+  # it the sed eats `http://localhost` out of `http://localhost.example.com`
+  # and the leftover no longer looks like a url.
+  ! sed -E "s#https?://(${okhosts})(:[0-9]+)?([/[:space:]\"']|\$)##g" <<<"$low" | grep -qE 'https?://'
+}
+
+# http clients writing. GET stays open, a body or a write method does not,
+# unless every named target is a dev host (okhosts above).
+if ! localWrite; then
+  hasO '(^|[^a-z0-9_-])(curl|wget)[[:space:]][^;|&]*((-X|--request|--method)[[:space:]]*=?[[:space:]]*(POST|PUT|PATCH|DELETE)|--data|--form|--upload-file|--json|--post-data|--post-file|--body-data|--body-file)' &&
+    block "an http write (POST/PUT/PATCH/DELETE or a body). reading a url is fine, writing to one is not."
+  # curls short flags are case sensitive: -d -F -T write, -f -t do not. matched
+  # inside a bundle too, `curl -sd @payload` is a POST.
+  grep -qE '(^|[^a-z0-9_-])curl[[:space:]]+([^;|&]*[[:space:]])?-[a-zA-Z]*[dFT]([[:space:]]|=|@|$)' <<<"$out" &&
+    block "curl -d/-F/-T sends a body. reading a url is fine, writing to one is not."
+  # httpie/xh take the method as a bare word. matched case sensitive, or a url
+  # path ending in /post reads as one.
+  grep -qE '(^|[^a-z0-9_-])(http|xh)[[:space:]]+([^;|&]*[[:space:]])?(POST|PUT|PATCH|DELETE)([[:space:]]|$)' <<<"$out" &&
+    block "an http write (POST/PUT/PATCH/DELETE or a body). reading a url is fine, writing to one is not."
+fi
+
+hasO '(^|[^a-z0-9_-])(npm|pnpm|yarn|bun|deno|cargo|uv|poetry|flit|maturin|hatch)[[:space:]]+publish' &&
+  block "publishing a package. what leaves this machine is the user's call."
+hasO '(^|[^a-z0-9_-])((gem|helm|oras|ko|cachix|attic)[[:space:]]+push|twine[[:space:]]+upload|goreleaser[[:space:]]+release|mix[[:space:]]+hex\.publish)' &&
+  block "publishing a package. what leaves this machine is the user's call."
+# covers `docker buildx build --push` along with the plain push
+hasO '(^|[^a-z0-9_-])(docker|podman|nerdctl|buildah)[[:space:]]+([^;|&]*[[:space:]])?(--)?push([[:space:]=]|$|[;|&])' &&
+  block "pushing an image to a registry. what leaves this machine is the user's call."
+hasO 'nix[[:space:]]+copy[[:space:]][^;|&]*--to' &&
+  block "nix copy to a remote store. what leaves this machine is the user's call."
+hasO 'brew[[:space:]]+bump-(formula|cask)-pr' &&
+  block "brew bump-*-pr opens a PR upstream. that is the user's to send."
+
+hasO '(^|[^a-z0-9_/.-])(sendmail|msmtp|mailx|swaks|mutt|neomutt)[[:space:]]' &&
+  block "sending mail. writing the draft to a file is fine, sending it is the user's."
+hasO '(^|[^a-z0-9_/.-])mail[[:space:]]+[^;|&]*-s[[:space:]]' &&
+  block "sending mail. writing the draft to a file is fine, sending it is the user's."
+# the applescript route to Mail and Messages, which no other rule here sees
+hasO 'osascript[^;|&]*(Mail|Messages)[^;|&]*[[:space:]]send([[:space:]]|$)' &&
+  block "sending mail or a message via applescript. that is the user's to send."
+hasO "${gitpre}send-email" &&
+  block "git send-email. patches leave this machine through the user, not you."
 
 exit 0

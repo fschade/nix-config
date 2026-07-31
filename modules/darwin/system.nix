@@ -3,7 +3,7 @@
   vars,
   ...
 }: {
-  # touch id for sudo, good on every mac incl headless servers
+  # touch id for sudo
   security.pam.services.sudo_local.touchIdAuth = true;
 
   # macos app firewall on, plus stealth mode (ignore probes/pings)
