@@ -1,5 +1,5 @@
 ; Catch-all for one-off snippets tied to tools you rarely touch.
-; Domain snippets live in their own files: vcs, containers, cluster, network, nix.
+; Domain snippets live in their own file, one per domain (vcs, containers, ...).
 
 % personal
 

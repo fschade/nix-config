@@ -3,9 +3,10 @@ config-version = 2
 
 start-at-login = true
 
-# start sketchybar with aerospace and tell it which workspace is focused.
-# @sketchybar@ becomes the store path on install, see default.nix
-after-startup-command = ['exec-and-forget @sketchybar@']
+# sketchybar owns its own launchd service (service.enable, see default.nix), so
+# no after-startup-command here: a second invocation just dies on the lock file.
+# the sketchybar placeholder below becomes the store path on install, kept out
+# of this comment or replaceStrings would rewrite it too.
 exec-on-workspace-change = [
   '/bin/bash',
   '-c',

@@ -1,8 +1,4 @@
-{
-  lib,
-  pkgs,
-  ...
-}: {
+{...}: {
   # cheatsheet launcher, a fzf picker over snippets. zsh rebinds it to Ctrl-/
   # (see home/cli/core/zsh.nix), bash keeps navi's own Ctrl-G. `cs` works in both.
   # personal cheats are below, add more with `navi repo add denisidoro/cheats`.
@@ -48,12 +44,21 @@
     enable = true;
     enableBashIntegration = true;
     enableZshIntegration = true;
-    # [mgr] since yazi 25.5.31, the old [manager] name only trips the migration
-    # warning on every launch (the store-managed toml is read-only)
+    # yazi's settings table is [mgr]. the store-managed toml is read-only, so a
+    # stale table name cant be migrated in place, it just warns on every launch
     settings.mgr = {
       show_hidden = true;
       sort_dir_first = true;
     };
+  };
+
+  # fuzzy tree navigator + file launcher. programs.broot writes the `br` shell
+  # function, a bare broot package cant: the launcher needs a shell hook to cd
+  # you into the picked dir.
+  programs.broot = {
+    enable = true;
+    enableBashIntegration = true;
+    enableZshIntegration = true;
   };
 
   # smarter cd, remembers your most used dirs. `z foo`, `zi` for fzf
@@ -79,15 +84,16 @@
     };
   };
 
-  # agent multiplexer, also the persistent-session layer over SSH (detach/attach
-  # on the pve servers, sessions survive a server restart). shell auto-start is
-  # OFF, Ghostty do the local splits. run `herdr`, or `herdr session attach
-  # <name>` for a named one. every binding sits behind the Ctrl-b prefix, so
-  # nothing clash with the aerospace / karabiner alt binds.
+  # agent multiplexer, also the persistent-session layer over SSH: detach on the
+  # pve servers and reattach later with `herdr session attach <name>`. not wired
+  # into shell startup, Ghostty do the local splits.
   programs.herdr = {
     enable = true;
     settings = {
       onboarding = false; # skip the first-run wizard, config comes from here
+      # ctrl+b is herdr's default, pinned so its declared and clear of the
+      # aerospace / karabiner alt binds
+      keys.prefix = "ctrl+b";
       # catppuccin/nix has no herdr module, herdr ships the palette itself
       theme.name = "catppuccin";
       update.version_check = false; # nix manage the binary, skip the update nag
@@ -100,13 +106,11 @@
     enableBashIntegration = true;
     enableZshIntegration = true;
     nix-direnv.enable = true;
+    # a flake re-eval after a lock or shell change legitimately takes >5s, so
+    # the default nags on every normal reload. 1m still surfaces a hung .envrc
+    config.warn_timeout = "1m";
     stdlib =
       # moves .direnv out of the project, see the script.
-      builtins.readFile ../../../custom/scripts/common/direnv-layout-dir.sh
-      # `use docker orb|colima` in a .envrc sets per-dir DOCKER_CONTEXT.
-      # darwin only, targets the colima/orbstack contexts.
-      + lib.optionalString pkgs.stdenv.hostPlatform.isDarwin (
-        builtins.readFile ../../../custom/scripts/darwin/direnv-use-docker.sh
-      );
+      builtins.readFile ../../../custom/scripts/common/direnv-layout-dir.sh;
   };
 }

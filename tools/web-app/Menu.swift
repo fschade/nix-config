@@ -106,7 +106,7 @@ extension AppDelegate {
         let out = goMenu.addItem(withTitle: "Log Out", action: #selector(logout), keyEquivalent: "")
         let navItems = [back, forward, reload, home, browser, out]
 
-        if !menuItems.isEmpty {
+        if showsLinks { // same rule as the toolbar dropdown (Toolbar.swift)
             goMenu.addItem(.separator())
             appendLinks(to: goMenu, shortcuts: true) // sets its own targets + ⌘1...9
         }

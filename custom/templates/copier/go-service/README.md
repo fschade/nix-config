@@ -16,7 +16,9 @@ Copier asks for `project_name`, `module_path`, `go_version`, `description`.
 `copier update` (pull later template changes into a generated project) needs the
 template to be its own git repo with version tags. This one lives inside
 nix-config, so only `copier copy` works. For updates, extract this directory
-into a tagged repo and point copier there.
+into a tagged repo and point copier there. Generated projects carry a
+`.copier-answers.yml`, so the update has the answers it needs once the template
+is reachable.
 
 The template runs a task (see `copier.yml`), which copier only allows for
 templates you trust. The trust entry for the path above comes from

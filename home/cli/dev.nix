@@ -26,6 +26,7 @@
       gh-dash # TUI dashboard for GitHub PRs/issues
       gitleaks # scan for secrets (any repo)
       lefthook # git hooks manager (any repo)
+      shellcheck # shell linter (used by `mise run check`; the devShell has it too)
 
       # nix authoring helpers
       nix-init # generate a nix derivation from a url
@@ -54,10 +55,9 @@
       # project scaffolding with template updates (`copier copy` / `copier update`)
       copier
     ]
-    # macOS container runtime: colima is a real dockerd in a Lima VM, free/OSS
-    # for any use unlike docker desktop. docker-client + compose are the CLIs.
+    # macOS container runtime is orbstack (cask, modules/darwin/apps.nix).
+    # docker-client + compose are the CLIs, talking to the orbstack context.
     ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
-      colima
       docker-client
       docker-compose
     ];
@@ -74,12 +74,6 @@
       '';
     }
     (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-      "docker/cli-plugins/docker-compose".source = "${pkgs.docker-compose}/bin/docker-compose";
-
-      # colima defaults for *new* instances only. to pick up changes:
-      # `colima delete && colima start`
-      "colima/_templates/default.yaml".source = ../../custom/config/colima/default.yaml;
-
       # supply chain: pnpm waits 7 days (value in minutes) before installing a new
       # release, so freshly compromised packages never reach us. the global config
       # covers every project pnpm.
@@ -93,12 +87,6 @@
   # templates at a stable HOME path, so the command dont depend on where this
   # repo lives: `copier copy ~/.local/share/copier/templates/go-service ./my-project`
   xdg.dataFile."copier/templates".source = ../../custom/templates/copier;
-
-  # sourced into zsh, gives `docker-use-colima` / `docker-use-orb` /
-  # `docker-use-status`. darwin only, both runtimes are macOS.
-  programs.zsh.initContent = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
-    lib.mkAfter (builtins.readFile ../../custom/scripts/darwin/docker-use.zsh)
-  );
 
   # git-trim (package above) needs to know the long-lived branches
   programs.git.settings.trim.bases = "develop,master,main";

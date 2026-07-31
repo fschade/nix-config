@@ -3,7 +3,7 @@
 # home-manager activation step after writeBoundary). `|| true` so a headless/SSH
 # switch without GUI session dont fail.
 # args: $1 = desktoppr binary, $2 = image path, $3 = hex color, $4 = scale
-set -u
+set -eu
 
 desktoppr="$1"
 path="$2"

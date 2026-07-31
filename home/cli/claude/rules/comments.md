@@ -1,11 +1,12 @@
 # Code comments
 
-The voice: short, plain, everyday English, slightly informal. It should sound
-like the person who wrote the code, a german native speaker, not like polished
-output. Small natural slips are fine and wanted: missing articles, loose verb
-agreement, e.g. "lefthook call it per repo", "diff that understand syntax".
-Readable, not broken. Lowercase start, no trailing period on fragments. Comment
-only where the code can't speak for itself.
+The voice: short, plain, functional. A note for whoever touches this line next,
+not documentation. In-flow imperfection is fine, a terse fragment or a dropped
+article, since the job is to inform and not to polish; it only has to stay clear
+to a reader who has never met you, which matters most once the repo is public.
+What it must never be is corporate or AI boilerplate: padded, hedged, or written
+to impress. Lowercase start, no trailing period on fragments. Comment only where
+the code can't speak for itself.
 
 No long parenthetical rationale. No comma chains either. Two statements are two
 sentences. Where a comma joins them a period does it better.

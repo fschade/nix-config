@@ -9,10 +9,13 @@ description = "IDE - gitignored"
 paths = ['''^\.idea/''']
 
 [[allowlists]]
-description = "gitignored build output and scratch - nothing hand-written in here"
+description = "gitignored, never committed: build output, scratch, per-machine overlays"
 paths = [
   '''^tools/web-app/\.build/''',
   '''^tools/web-app/\.swiftpm/''',
+  '''^\.direnv/''',
   '''^dist/''',
   '''^tmp/''',
+  # holds real room/invite links, gitignored, so scans must not fail on it
+  '''manifest\.local\.json$''',
 ]

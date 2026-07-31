@@ -17,6 +17,7 @@ in {
       ../home/cli/dev.nix
       ../home/cli/ops.nix
       ../home/gui/ghostty.nix
+      ../home/gui/raycast.nix
       ../home/gui/aerospace
       ../home/gui/karabiner
       ../home/gui/sketchybar

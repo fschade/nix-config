@@ -39,7 +39,7 @@ else
   # fresh machine: no darwin-rebuild yet, bootstrap the same way the README does
   if command -v darwin-rebuild >/dev/null 2>&1; then
     # a switch never touches the lock, so brew stays at whatever the pinned taps
-    # hold. bump with `mise run brew-update`
+    # hold. bump with `mise run update`
 
     # resolve before sudo, /run/current-system/sw/bin is not on secure_path
     sudo "$(command -v darwin-rebuild)" switch --flake ".#$target"
@@ -56,7 +56,12 @@ else
     # switch reconciled login items before it, so it warned that one missing.
     # reconcile once more, it is idempotent and now the app is there.
     if [ -f /etc/login-items ]; then
-      mapfile -t items </etc/login-items
+      # read loop, not mapfile: a fresh machine runs this under /bin/bash 3.2.
+      # the `|| [ -n ]` keeps a last line without trailing newline
+      items=()
+      while IFS= read -r line || [ -n "$line" ]; do
+        items+=("$line")
+      done </etc/login-items
       sudo bash ./custom/scripts/darwin/login-items.sh "$(id -un)" "${items[@]}"
     fi
   else

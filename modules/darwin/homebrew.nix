@@ -43,8 +43,10 @@ in {
     # rest still get upgraded by upgrade = true below. avoids the version fight.
     greedyCasks = false;
 
-    # no `brew update` on each switch. taps are nix-pinned (read-only), so the
-    # update is wasted and just makes activation slow.
+    # sets HOMEBREW_NO_AUTO_UPDATE in the shell env, so a manual `brew install`
+    # never auto-updates taps first. the activation bundle is covered separately,
+    # onActivation.autoUpdate already defaults to false. taps are nix-pinned
+    # (read-only) so the update would just fail or waste time.
     global.autoUpdate = false;
 
     onActivation = {

@@ -33,33 +33,27 @@
 
     # agent skills for claude code (see home/cli/claude). pinned as source trees
     # instead of installed with `npx skills add`, which drops unversioned copies
-    # into ~/.agents. bump them with `mise run flake-update`.
-    skills-mattpocock = {
-      url = "github:mattpocock/skills"; # engineering flow skills
+    # into ~/.agents. bump them with `mise run update`.
+    #
+    # borrowed with thanks from github.com/addyosmani/agent-skills (MIT): the
+    # lifecycle pack, taken whole. skills, review personas and slash commands.
+    skills-addyosmani = {
+      url = "github:addyosmani/agent-skills";
       flake = false;
     };
     skills-humanizer = {
       url = "github:blader/humanizer"; # strips ai writing tells
       flake = false;
     };
-    # borrowed with thanks from github.com/trailofbits/skills (CC-BY-SA-4.0).
-    skills-trailofbits = {
-      url = "github:trailofbits/skills";
-      flake = false;
-    };
-    # the first-party marketplace. we take single review subagents out of it,
-    # not the plugin machinery.
-    claude-plugins-official = {
-      url = "github:anthropics/claude-plugins-official";
-      flake = false;
-    };
 
-    # declarative homebrew: install brew and pin every tap as flake input (see modules/darwin/homebrew.nix). source trees, not flakes.
+    # declarative homebrew: install brew and pin every tap as flake input (see
+    # modules/darwin/homebrew.nix). the taps below carry `flake = false`, they are
+    # source trees; nix-homebrew itself is a normal flake.
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
       # nix-homebrew pins brew to a hard tag and lags behind releases, so brew
       # would read tap files it does not understand yet: a cask using a stanza
-      # from a newer brew fails as "definition is invalid". `mise run brew-update`
+      # from a newer brew fails as "definition is invalid". `mise run update`
       # only re-locks this pin, moving it means editing the tag below in the same
       # commit as the taps.
       #
@@ -174,7 +168,7 @@
 
     mkHome = {
       host,
-      system ? "x86_64-linux",
+      system,
     }:
       home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs {

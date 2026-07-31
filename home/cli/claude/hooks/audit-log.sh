@@ -10,6 +10,12 @@ json="$(cat)"
 cmd="$(jq -r '.tool_input.command // empty' <<<"$json")"
 [ -z "$cmd" ] && exit 0
 
+# join line continuations and newlines first, or a mutation split across lines
+# (a kubectl inside a multi-line loop) never reaches the match. same as
+# bash-guard, so the log sees what the guard sees.
+cmd="${cmd//\\$'\n'/ }"
+cmd="${cmd//$'\n'/; }"
+
 # `"kubectl" apply` would walk past the CLI match, so scan a quote-stripped copy
 # as a second line too, same as bash-guard does.
 scan="$cmd"$'\n'"${cmd//[\'\"]/}"
@@ -21,8 +27,8 @@ scan="$cmd"$'\n'"${cmd//[\'\"]/}"
 grep -qE '(^|[^a-z0-9_-])(kubectl|helm|tofu|terraform)[[:space:]]' <<<"$scan" || exit 0
 grep -qE '(kubectl[[:space:]]+[^;|&]*(apply|delete|create|replace|scale|patch|rollout|drain|cordon|uncordon|label|annotate|taint)|helm[[:space:]]+[^;|&]*(install|upgrade|uninstall|rollback)|(tofu|terraform)[[:space:]]+[^;|&]*(apply|destroy|import|taint|state[[:space:]]+(rm|mv)))' <<<"$scan" || exit 0
 
-# no exit code: the bash tool response carries none, so the field this used to
-# write was "?" on every single line. what ran is the part worth keeping.
+# no exit code: the bash tool response carries none. what ran is the part
+# worth keeping.
 mkdir -p "$HOME/.claude/logs"
 jq -cn \
   --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

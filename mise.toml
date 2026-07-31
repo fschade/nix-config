@@ -25,7 +25,7 @@ raw = true
 run = "swift ./tools/web-app/web-app.swift"
 
 [tasks.check]
-description = "Run all static gates in check mode (what CI runs)"
+description = "Run the static gates (nix, shell, swift, secrets, hooks) in check mode"
 run = "./scripts/check.sh"
 
 [tasks.fmt]
@@ -33,15 +33,12 @@ description = "Format all nix files"
 # same scope as the check gate: gitignored trees like tmp/ are not ours to rewrite
 run = "git ls-files -z --cached --others --exclude-standard '*.nix' | xargs -0 alejandra --quiet"
 
-[tasks.flake-update]
-description = "Bump all flake inputs except the churny homebrew taps"
-run = "./scripts/flake-update.sh"
-
-[tasks.brew-update]
-description = "Bump the pinned homebrew taps (deploy after, to pull the new formulae/casks)"
-# brew-src is pinned to a version tag, so it only re-locks, it doesnt move. bump
-# brew itself by editing that tag in flake.nix, together with the taps.
-run = "nix flake update brew-src homebrew-core homebrew-cask homebrew-nikitabobko homebrew-sozercan"
+[tasks.update]
+description = "Bump every flake input (nixpkgs, skills, brew taps), commit + deploy after"
+# everything moves in one go, homebrew taps included. brew-src is pinned to a
+# version tag, so it only re-locks, it doesnt move: bump brew itself by editing
+# that tag in flake.nix.
+run = "nix flake update"
 
 [tasks.apps]
 description = "List the apps/CLIs you declared (nix packages + brew casks)"

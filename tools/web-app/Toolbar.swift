@@ -17,9 +17,10 @@ extension AppDelegate {
         window.titleVisibility = .hidden
     }
 
-    // the links dropdown only earns its spot when it adds something the toolbar
-    // dont have already: no links, or one link that just points home, so hide it
-    private var showsLinks: Bool {
+    // the links list only earns its spot when it adds something: not empty, and
+    // not just one link that points home. shared by the toolbar dropdown and the
+    // go menu (Menu.swift) so both show or hide it together.
+    var showsLinks: Bool {
         guard !menuItems.isEmpty else { return false }
         if menuItems.count == 1, menuItems[0].url == homeURL { return false }
         return true

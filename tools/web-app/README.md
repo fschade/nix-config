@@ -48,7 +48,7 @@ A git-ignored `manifest.local.json` beside it is merged over the manifest
 | `bundleId` | | override the `com.fschade.webapp.<slug>` default |
 | `userAgent` | | custom UA string, empty = present as full desktop Safari |
 | `inspectable` | | enable the Web Inspector (right-click > Inspect Element) |
-| `window` | | `{ "width", "height" }` initial size (default 1100×800) |
+| `window` | | `{ "width", "height" }` initial size (default 1100x800) |
 | `allowSelfSignedCerts` | | accept self-signed / invalid TLS (default off) |
 | `keepRunningWhenClosed` | | closing the window only hides it (default on) |
 | `openExternalLinksInBrowser` | | off-domain clicks open in the default browser (default on) |
@@ -61,8 +61,9 @@ committing third-party artwork (opencloud and opentalk do that). The builder
 renders it into a full-bleed rounded macOS tile, then the standard `.icns` sizes.
 
 Sites that ship a PWA manifest map over nicely: `name`/`description`/`start_url`
-→ `name`/`description`/`url`, `id` → `bundleId`, `icons[].src` → `icon`,
-`shortcuts` → `links`, `theme_color` ≈ `iconBackground`.
+become `name`/`description`/`url`, `id` becomes `bundleId`, `icons[].src` becomes
+`icon`, `shortcuts` becomes `links`, and `theme_color` roughly maps to
+`iconBackground`.
 
 ## Building
 
@@ -104,7 +105,7 @@ Source of truth stays in nix.
 
 Toolbar and **Go** menu: back/forward, reload, **Overview** (⌘⇧H), **Open in
 Browser** (⌘⇧B, handy for a password manager) and **Log Out** (wipes the
-session). Plus ⌘F find, ⌘+/−/0 zoom, http basic/digest auth like a browser,
+session). Plus ⌘F find, ⌘+/-/0 zoom, http basic/digest auth like a browser,
 camera/mic for the app's own origins (macOS TCC still gates it).
 
 - **Links** show as ⌘1...⌘9 and a toolbar dropdown. The dropdown hides when it

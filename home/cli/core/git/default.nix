@@ -5,8 +5,8 @@
   ...
 }: {
   # committed: linter for conventional commits, lefthook call it per repo.
-  # difftastic: diff that understand syntax, via `git dft`. delta stays the
-  # default pager for `git diff`/`log`/`show`.
+  # difftastic: diff that understand syntax, via `git dt` (difftool). delta
+  # stays the default pager for `git diff`/`log`/`show`.
   home.packages = [pkgs.committed pkgs.difftastic];
 
   programs.gh = {
@@ -33,7 +33,6 @@
       };
 
       commit.template = "${config.xdg.configHome}/git/commit-message";
-      alias.dft = "!git -c diff.external=difft diff";
 
       # `git difftool` (and `git dt`) open changes in difftastic instead of the
       # pager. regular `git diff` still use delta.

@@ -9,10 +9,8 @@ PLUGIN_DIR="$CONFIG_DIR/plugins"
 # lands on helvetica without saying anything
 UI_FONT=".AppleSystemUIFont"
 
-# catppuccin mocha
-BASE=0xff1e1e2e
-TEXT=0xffcdd6f4
-ACCENT=0xfff5c2e7 # pink
+# shellcheck source=plugins/colors.sh
+source "$PLUGIN_DIR/colors.sh" # BASE, TEXT, ACCENT
 
 sketchybar --bar height=32 position=top padding_left=8 padding_right=8 color=$BASE
 

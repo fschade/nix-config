@@ -1,7 +1,7 @@
 % nix
 
-# Garbage-collect old generations & free disk
-nix-collect-garbage -d
+# Garbage-collect: drop old generations, then collect (from the nix-config checkout)
+mise run gc
 
 # Evaluate a flake output
 nix eval <flake>#<attr>
