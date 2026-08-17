@@ -17,7 +17,10 @@ let package = Package(
             // itself is excluded by swiftpm, README.md only because swiftpm warns
             // about stray files.) a new .swift that is NOT host code has to be
             // named twice: here, and in web-app.swift's `notHost` for the real build.
-            exclude: ["web-app.swift", "README.md"]
+            exclude: ["web-app.swift", "README.md"],
+            // the injected js + templates; real bundles get the folder stamped
+            // into Contents/Resources by the builder, this covers the dev build
+            resources: [.copy("assets")]
         ),
     ]
 )

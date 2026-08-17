@@ -71,6 +71,31 @@ extension AppDelegate {
         let zoomOut = viewMenu.addItem(withTitle: "Zoom Out", action: #selector(zoomOut), keyEquivalent: "-")
         let zoomReset = viewMenu.addItem(withTitle: "Actual Size", action: #selector(zoomReset), keyEquivalent: "0")
         for item in [zoomIn, zoomOut, zoomReset] { item.target = self }
+
+        // the mute shortcuts follow their toolbar buttons: only apps that opted
+        // into muting (call apps) get them, elsewhere they would be dead weight
+        if toolbarButtons.contains("muteAudio") || toolbarButtons.contains("muteMic") {
+            viewMenu.addItem(.separator())
+            if toolbarButtons.contains("muteAudio") {
+                let m = viewMenu.addItem(withTitle: "Mute Sound", action: #selector(toggleAudioMute), keyEquivalent: "A")
+                m.target = self
+            }
+            if toolbarButtons.contains("muteMic") {
+                let m = viewMenu.addItem(withTitle: "Mute Microphone", action: #selector(toggleMicMute), keyEquivalent: "M")
+                m.target = self
+            }
+        }
+        // custom buttons get menu entries too, hidden together with their button
+        let visibleCustoms = customButtons.filter { toolbarButtons.contains($0.name) }
+        if !visibleCustoms.isEmpty {
+            viewMenu.addItem(.separator())
+            for custom in visibleCustoms {
+                let item = viewMenu.addItem(withTitle: custom.label, action: #selector(runCustomAction(_:)),
+                                            keyEquivalent: custom.key ?? "")
+                item.representedObject = custom.name
+                item.target = self
+            }
+        }
         viewItem.submenu = viewMenu
 
         // explicit way back to a keepRunning app's hidden window. activating the
@@ -147,6 +172,18 @@ extension AppDelegate {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
         return item
+    }
+
+    // checkmarks for the stateful View-menu items (mutes, custom toggles).
+    // NSMenu finds this over respondsToSelector, declared conformance isnt needed.
+    @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(toggleAudioMute) { item.state = audioMuted ? .on : .off }
+        if item.action == #selector(toggleMicMute) { item.state = webView.microphoneCaptureState == .muted ? .on : .off }
+        if item.action == #selector(runCustomAction(_:)), let name = item.representedObject as? String,
+           customButtons.first(where: { $0.name == name })?.symbolOn != nil {
+            item.state = customStates[name] == true ? .on : .off
+        }
+        return true
     }
 
     // MARK: about

@@ -5,7 +5,7 @@ result/
 .DS_Store
 
 # per-app web-app overlays with secret room/invite links (see custom/web-apps)
-custom/web-apps/*/manifest.local.json
+custom/web-apps/*/manifest.local.jsonc
 
 # shareable web-app DMGs built by `mise run web-app dmg <path>` (see custom/web-apps)
 dist/

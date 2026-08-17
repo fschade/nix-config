@@ -26,12 +26,52 @@ extension AppDelegate {
         return true
     }
 
+    // order and grouping come from the manifest layout, visibility from the
+    // settings; the centered title and the downloads button are the host's
     private func defaultIdentifiers() -> [NSToolbarItem.Identifier] {
-        var ids: [NSToolbarItem.Identifier] = [.home]
-        if showsLinks { ids.append(.links) }
-        var right: [NSToolbarItem.Identifier] = [.nav, .reload, .openInBrowser, .logout]
-        if !downloadItems.isEmpty { right.insert(.downloads, at: 0) } // safari-style, once used
-        ids += [.flexibleSpace, .title, .flexibleSpace] + right
+        var idFor: [String: NSToolbarItem.Identifier] = [
+            "home": .home, "links": .links, "nav": .nav, "reload": .reload,
+            "muteAudio": .muteAudio, "muteMic": .muteMic,
+            "openInBrowser": .openInBrowser, "logout": .logout,
+        ]
+        for b in customButtons { idFor[b.name] = customIdentifier(for: b.name) }
+        // a configured button still has to earn its spot: visible per settings,
+        // and the links dropdown only when it adds something
+        func mapped(_ names: [String]) -> [NSToolbarItem.Identifier] {
+            names.compactMap { name in
+                guard toolbarButtons.contains(name), let id = idFor[name] else { return nil }
+                return id == .links && !showsLinks ? nil : id
+            }
+        }
+        var ids: [NSToolbarItem.Identifier] = []
+        // adjacent bordered items share one glass capsule, a space splits them:
+        // so every top-level entry is set apart and only the members of an
+        // explicit group sit together in one capsule
+        func add(_ members: [NSToolbarItem.Identifier]) {
+            guard !members.isEmpty else { return }
+            if let last = ids.last, last != .flexibleSpace { ids.append(.space) }
+            ids += members
+        }
+        var titled = false
+        // the centered title, then the downloads button opens the right zone
+        func emitTitle() {
+            ids += [.flexibleSpace, .title, .flexibleSpace]
+            if !downloadItems.isEmpty { add([.downloads]) } // safari-style, once used
+            titled = true
+        }
+        for entry in bakedToolbarLayout {
+            switch entry {
+            case .split where !titled:
+                emitTitle()
+            case .split:
+                break // the builder warned already, keep the first
+            case .button(let name):
+                add(mapped([name]))
+            case .group(let names):
+                add(mapped(names))
+            }
+        }
+        if !titled { emitTitle() } // no "|" in the layout: everything sits left
         return ids
     }
 
@@ -59,6 +99,15 @@ extension AppDelegate {
 
         case .reload:
             return button(id, "Reload", "arrow.clockwise", #selector(reloadPage))
+
+        case .muteAudio:
+            return button(id, "Mute Sound", audioMuted ? "speaker.slash" : "speaker.wave.2",
+                          #selector(toggleAudioMute))
+
+        case .muteMic:
+            return button(id, "Mute Microphone",
+                          webView.microphoneCaptureState == .muted ? "mic.slash" : "mic",
+                          #selector(toggleMicMute))
 
         case .home:
             return button(id, "Overview", "house", #selector(navigateHome))
@@ -92,7 +141,17 @@ extension AppDelegate {
             return item
 
         default:
-            return nil
+            guard let name = customName(of: id),
+                  let custom = customButtons.first(where: { $0.name == name }) else { return nil }
+            let item = NSToolbarItem(itemIdentifier: id)
+            item.label = custom.label
+            item.toolTip = custom.label
+            item.image = customSymbol(customStates[name] == true ? (custom.symbolOn ?? custom.symbol) : custom.symbol,
+                                      custom.label)
+            item.target = self
+            item.action = #selector(runCustomAction(_:))
+            item.isBordered = true
+            return item
         }
     }
 }

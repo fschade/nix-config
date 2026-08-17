@@ -59,6 +59,9 @@ cant build them: needs swiftc from xcode). how they work, the manifest format an
 the `mise run web-app` builder are documented in **tools/web-app/README.md**. what
 needs a human here:
 
+- local manifest overrides are `custom/web-apps/*/manifest.local.jsonc`. a
+  machine still carrying a gitignored `manifest.local.json` renames it once by
+  hand; the builder warns about and ignores the old name.
 - one-time grants (system settings > privacy & security), asked on first use:
   notifications (else desktop notifications stay silent), and camera + mic for
   opentalk (plus screen recording if you share a screen).

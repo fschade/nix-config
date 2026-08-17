@@ -9,10 +9,20 @@ extension AppDelegate {
     func userContentController(_ controller: WKUserContentController,
                                didReceive message: WKScriptMessage) {
         // main-frame only, an embedded frame has no business driving navigation
+        // or the toolbar
         if message.name == "webapp" {
-            guard message.frameInfo.isMainFrame else { return }
-            if (message.body as? [String: Any])?["action"] as? String == "retry" {
+            guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
+            switch body["action"] as? String {
+            case "retry": // the error page's Retry button
                 if let url = lastFailedURL { webView.load(URLRequest(url: url)) } else { webView.reload() }
+            case "buttonState": // window.webapp.setButtonState: page drives a toggle button
+                if let name = body["name"] as? String, let value = body["value"] as? Bool,
+                   customButtons.contains(where: { $0.name == name && $0.symbolOn != nil }) {
+                    customStates[name] = value
+                    updateCustomButtons()
+                }
+            default:
+                break
             }
             return
         }

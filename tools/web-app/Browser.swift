@@ -166,6 +166,13 @@ extension AppDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         updateTitle()
         updateProgress(1)
+        applyAudioMute() // the fresh page's shim starts unmuted, the native state wins
+        // a fresh page dropped whatever the toggle buttons had switched on
+        if !customStates.isEmpty {
+            customStates = [:]
+            updateCustomButtons()
+        }
+        pushPageState() // webapp:ready with the full ui state
     }
 
     // load errors (network down, dns, rejected cert) leave a blank page otherwise,
@@ -224,27 +231,8 @@ extension AppDelegate {
                 .replacingOccurrences(of: "<", with: "&lt;")
                 .replacingOccurrences(of: ">", with: "&gt;")
         }
-        return """
-        <!doctype html><html><head><meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          :root { color-scheme: light dark; }
-          body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center;
-                 font: -apple-system-body, system-ui, sans-serif;
-                 background: Canvas; color: CanvasText; }
-          .box { text-align: center; max-width: 32rem; padding: 2rem; }
-          h1 { font-size: 1.3rem; margin: 0 0 .5rem; }
-          p { margin: .25rem 0; opacity: .6; }
-          .msg { margin-top: .75rem; font-size: .9rem; }
-          button { margin-top: 1.5rem; font: inherit; font-size: .95rem; padding: .5rem 1.4rem;
-                   border: 0; border-radius: 8px; background: #0a84ff; color: #fff; cursor: pointer; }
-        </style></head><body>
-          <div class="box">
-            <h1>Can’t reach \(escape(host))</h1>
-            <p class="msg">\(escape(message))</p>
-            <button onclick="window.webkit.messageHandlers.webapp.postMessage({action:'retry'})">Retry</button>
-          </div>
-        </body></html>
-        """
+        return assetString("error-page.html")
+            .replacingOccurrences(of: "__HOST__", with: escape(host))
+            .replacingOccurrences(of: "__MESSAGE__", with: escape(message))
     }
 }

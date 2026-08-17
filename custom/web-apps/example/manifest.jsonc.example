@@ -24,6 +24,32 @@
   "keepRunningWhenClosed": true,          // closing the window hides it, app stays
   "openExternalLinksInBrowser": true,     // off-domain link clicks open in browser
 
+  // the toolbar layout, in order. a string is a button, "|" splits left/right
+  // of the centered title, a nested array is a group whose buttons share one
+  // capsule (everything else stands alone).
+  // omit for the default: everything except the two mute toggles. "muteAudio"
+  // silences the page's sound (music elsewhere stays), "muteMic" mutes the mic
+  // feed into the page: both meant for call apps.
+  "toolbar": ["home", ["muteAudio", "muteMic"], "links", "|", "nav", "reload", "openInBrowser", "logout"],
+
+  // --- page tweaks (optional) ---
+  // css/js files from this folder, baked in at build time. "urlContains" scopes
+  // an entry to matching urls: css follows spa routes, js runs once per page
+  // load if the url matches then. main frame only.
+  "inject": {
+    "css": ["tweaks.css", { "file": "board.css", "urlContains": "/board" }],
+    "js": ["tweaks.js"]
+  },
+
+  // custom toolbar buttons running js in the page. reference them by name in
+  // "toolbar" (without a "toolbar" key they hang off the right end). "symbolOn"
+  // makes a toggle: the script's last expression (a boolean) is the state.
+  // "key" is the menu shortcut: lowercase = cmd, uppercase = cmd+shift.
+  "buttons": [
+    { "name": "focus", "label": "Focus Mode", "symbol": "moon", "symbolOn": "moon.fill",
+      "js": "document.body.classList.toggle('focus')", "key": "F" }
+  ],
+
   // --- jump targets (optional) ---
   // show as ⌘1...9 and in the toolbar "Links" dropdown. give links a "section" to
   // group them under a heading, handy when one app fronts several sites.

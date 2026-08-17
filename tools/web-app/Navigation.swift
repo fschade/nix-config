@@ -7,6 +7,7 @@ extension AppDelegate {
     // "Overview" returns you to where you are: the home of the section you are
     // currently in (its first link), else the global start url
     @objc func navigateHome() {
+        emitPageEvent("navigate", ["action": "home"])
         if let url = currentSectionHome() ?? homeURL { webView.load(URLRequest(url: url)) }
     }
 
@@ -23,12 +24,25 @@ extension AppDelegate {
         return menuItems.first { $0.section == section }?.url
     }
 
-    @objc func navigateBack() { webView.goBack() }
-    @objc func navigateForward() { webView.goForward() }
-    @objc func reloadPage() { webView.reload() }
+    // the navigate events fire just before the page goes away, fire-and-forget:
+    // a listener can still flush state (localStorage is synchronous)
+    @objc func navigateBack() {
+        emitPageEvent("navigate", ["action": "back"])
+        webView.goBack()
+    }
+
+    @objc func navigateForward() {
+        emitPageEvent("navigate", ["action": "forward"])
+        webView.goForward()
+    }
+
+    @objc func reloadPage() {
+        emitPageEvent("navigate", ["action": "reload"])
+        webView.reload()
+    }
 
     @objc func navSegment(_ sender: NSSegmentedControl) {
-        if sender.selectedSegment == 0 { webView.goBack() } else { webView.goForward() }
+        if sender.selectedSegment == 0 { navigateBack() } else { navigateForward() }
     }
 
     @objc func navigateItem(_ sender: NSMenuItem) {
@@ -37,6 +51,7 @@ extension AppDelegate {
 
     // escape hatch, e.g. when you need the browser's password manager
     @objc func openInBrowser() {
+        emitPageEvent("openInBrowser", [:])
         if let url = webView.url ?? homeURL { NSWorkspace.shared.open(url) }
     }
 
@@ -48,6 +63,7 @@ extension AppDelegate {
         alert.addButton(withTitle: "Log Out")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        emitPageEvent("logout", [:]) // last call: the wipe below takes localStorage with it
 
         // http basic/digest credentials live in URLCredentialStorage (keychain),
         // not in the website data store, drop them too, or the next request
@@ -72,6 +88,7 @@ extension AppDelegate {
     private func setZoom(_ value: CGFloat) {
         let clamped = min(max(value, 0.5), 3.0)
         webView.setMagnification(clamped, centeredAt: CGPoint(x: webView.bounds.midX, y: webView.bounds.midY))
+        emitPageEvent("zoom", ["level": Double(clamped)])
     }
 
     // MARK: titlebar

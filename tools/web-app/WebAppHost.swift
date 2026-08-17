@@ -4,7 +4,7 @@ import WebKit
 
 // generic web-app host. one compiled binary serves every generated .app bundle:
 // the target url, title and per-app links come from the bundle's Info.plist,
-// stamped in by web-app.swift from custom/web-apps/<slug>/manifest.json. a website
+// stamped in by web-app.swift from custom/web-apps/<slug>/manifest.jsonc. a website
 // becomes a real, standalone mac app with its own icon, window and process. a
 // native toolbar/menu to navigate, native macos notifications (WKWebView has none
 // of its own), a persistent session, "open in browser" and a real logout.
@@ -18,38 +18,29 @@ import WebKit
 //   Downloads.swift    WKDownloadDelegate + the downloads button and popover
 //   Notifications.swift the web-notification bridge + our own page messages
 //   FindBar.swift      the ⌘F find-on-page strip
+//   Audio.swift        the mute toggles: page sound (js shim) and mic capture
+//   Inject.swift       per-app css/js injection + custom buttons running js
 //
 // Settings.swift is not in the list, it is SettingsController, not an extension.
 
-// injected before the page runs: replace window.Notification, so the page's
-// desktop notifications get bridged to real macos ones over the handler
-private let notificationShim = """
-(function () {
-  var post = function (m) {
-    try { window.webkit.messageHandlers.notify.postMessage(m); } catch (e) {}
-  };
-  function N(title, options) {
-    options = options || {};
-    post({ title: String(title || ''), body: String(options.body || '') });
-    this.onclick = this.onclose = this.onerror = this.onshow = null;
-    this.close = function () {};
-    this.addEventListener = function () {};
-    this.removeEventListener = function () {};
-  }
-  N.permission = 'granted';
-  N.maxActions = 2;
-  N.requestPermission = function (cb) {
-    post({ requestPermission: true });
-    if (typeof cb === 'function') cb('granted');
-    return Promise.resolve('granted');
-  };
-  try {
-    Object.defineProperty(window, 'Notification', { value: N, configurable: true, writable: true });
-  } catch (e) {
-    window.Notification = N;
-  }
-})();
-"""
+// the js the host injects and the page templates live in assets/ next to the
+// sources: the builder stamps that folder into every bundle
+// (Contents/Resources/assets), the spm dev build carries it as a package
+// resource. a bundle without an asset is a broken build: the app still runs,
+// the affected feature goes dark, and the log says which file is missing.
+func assetString(_ name: String) -> String {
+    #if SWIFT_PACKAGE
+    let bundle = Bundle.module
+    #else
+    let bundle = Bundle.main
+    #endif
+    guard let url = bundle.url(forResource: name, withExtension: nil, subdirectory: "assets"),
+          let text = try? String(contentsOf: url, encoding: .utf8) else {
+        NSLog("web-app: missing asset %@", name)
+        return ""
+    }
+    return text
+}
 
 // the key window gets performKeyEquivalent before the main menu, and WKWebView
 // returns true for almost every ⌘-combo, so it swallows our menu shortcuts
@@ -68,6 +59,8 @@ extension NSToolbarItem.Identifier {
     static let reload = NSToolbarItem.Identifier("reload")
     static let home = NSToolbarItem.Identifier("home")
     static let links = NSToolbarItem.Identifier("links")
+    static let muteAudio = NSToolbarItem.Identifier("muteAudio")
+    static let muteMic = NSToolbarItem.Identifier("muteMic")
     static let openInBrowser = NSToolbarItem.Identifier("openInBrowser")
     static let logout = NSToolbarItem.Identifier("logout")
     static let title = NSToolbarItem.Identifier("title")
@@ -91,9 +84,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var bakedAllowSelfSigned = false
     var bakedKeepRunning = false
     var bakedExternalLinks = false
+    var bakedToolbarLayout = defaultToolbarLayout
     var allowSelfSigned = false           // accept self-signed tls (opt-in)
     var keepRunning = false               // closing the window hides it instead of quitting
     var externalLinksInBrowser = false    // off-domain links open in the default browser
+    var toolbarButtons = Set(toolbarLayoutNames(defaultToolbarLayout)) // which layout buttons show
+    var audioMuted = false                // page sound muted via the injected shim (Audio.swift)
+    var micObs: NSKeyValueObservation?    // KVO on microphoneCaptureState (page starts/stops capture)
+    var customButtons: [CustomButton] = [] // manifest-defined buttons running js (Inject.swift)
+    var customStates: [String: Bool] = [:] // toggle state per custom button, reset on page load
+    var injectedCSS: [(code: String, filter: String?)] = []
     var bakedUserAgent: String?
     var bakedInspectable = false          // manifest opt-in: enable the web inspector
     var windowWidth: CGFloat = 1100       // initial window size (manifest override)
@@ -125,6 +125,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         bakedExternalLinks = info["WebAppExternalLinksInBrowser"] as? Bool ?? false
         bakedUserAgent = info["WebAppUserAgent"] as? String
         bakedInspectable = info["WebAppInspectable"] as? Bool ?? false
+        customButtons = parseCustomButtons(info["WebAppButtons"] as? [[String: String]] ?? [])
+        injectedCSS = parseInjected(info["WebAppInjectCSS"] as? [[String: String]] ?? [])
+        // no explicit layout: custom buttons hang off the right end. an explicit
+        // layout decides for itself, a button it doesnt list stays hidden.
+        bakedToolbarLayout = (info["WebAppToolbar"] as? [Any]).map(parseToolbarLayout)
+            ?? defaultToolbarLayout + customButtons.map { .button($0.name) }
         windowWidth = (info["WebAppWindowWidth"] as? Double).map { CGFloat($0) } ?? 1100
         windowHeight = (info["WebAppWindowHeight"] as? Double).map { CGFloat($0) } ?? 800
 
@@ -135,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
             kWebAppAllowSelfSigned: bakedAllowSelfSigned,
             kWebAppKeepRunning: bakedKeepRunning,
             kWebAppExternalLinks: bakedExternalLinks,
+            kWebAppToolbar: toolbarLayoutNames(bakedToolbarLayout),
         ])
         loadFromDefaults()
 
@@ -146,10 +153,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
 
         let content = WKUserContentController()
         content.add(self, name: "notify")
-        content.add(self, name: "webapp") // in-app actions (e.g. the error page's Retry)
-        content.addUserScript(WKUserScript(source: notificationShim,
+        content.add(self, name: "webapp") // in-app actions (error page Retry, setButtonState)
+        content.addUserScript(WKUserScript(source: assetString("notification-shim.js"),
                                            injectionTime: .atDocumentStart,
                                            forMainFrameOnly: false))
+        // always injected, inert until the mute button flips it (Audio.swift). main
+        // frame only: evaluateJavaScript cant reach subframes anyway, so a
+        // cross-origin iframe playing audio stays unmuted.
+        content.addUserScript(WKUserScript(source: assetString("audio-mute-shim.js"),
+                                           injectionTime: .atDocumentStart,
+                                           forMainFrameOnly: true))
+        // the page-facing bridge (events + state, Inject.swift), before the
+        // tweak scripts so injected js can rely on window.webapp
+        content.addUserScript(WKUserScript(source: assetString("bridge-shim.js"),
+                                           injectionTime: .atDocumentStart,
+                                           forMainFrameOnly: true))
+        // per-app page tweaks from the manifest (Inject.swift)
+        if !injectedCSS.isEmpty { content.addUserScript(cssInjectionScript(injectedCSS)) }
+        for entry in parseInjected(info["WebAppInjectJS"] as? [[String: String]] ?? []) {
+            content.addUserScript(jsInjectionScript(entry))
+        }
 
         let config = WKWebViewConfiguration()
         config.userContentController = content
@@ -199,7 +222,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         }
         // keep the titlebar live over SPA navigation too, not just on didCommit
         titleObs = webView.observe(\.title, options: [.new]) { [weak self] _, _ in self?.updateTitle() }
-        urlObs = webView.observe(\.url, options: [.new]) { [weak self] _, _ in self?.updateTitle() }
+        urlObs = webView.observe(\.url, options: [.new]) { [weak self] _, _ in
+            self?.updateTitle()
+            // url-scoped injected css follows spa routes over this hook
+            if self?.injectedCSS.contains(where: { $0.filter != nil }) == true {
+                self?.webView.evaluateJavaScript(
+                    "window.__webappUpdateInjectedCSS && window.__webappUpdateInjectedCSS()",
+                    completionHandler: nil)
+            }
+        }
+        // keep the mic button truthful when the page starts or stops capturing on its own
+        micObs = webView.observe(\.microphoneCaptureState, options: [.new]) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.updateMuteButtons() }
+        }
 
         installToolbar()
         buildMenu()
@@ -254,14 +289,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         allowSelfSigned = d.bool(forKey: kWebAppAllowSelfSigned)
         keepRunning = d.bool(forKey: kWebAppKeepRunning)
         externalLinksInBrowser = d.bool(forKey: kWebAppExternalLinks)
+        toolbarButtons = Set(d.array(forKey: kWebAppToolbar) as? [String] ?? toolbarLayoutNames(bakedToolbarLayout))
     }
 
     @objc func openSettings() {
         if settings == nil {
+            var labels = toolbarButtonLabels
+            for b in customButtons { labels[b.name] = b.label }
             settings = SettingsController(defaultLinks: bakedLinks, defaultHomeURL: bakedURL,
                                           defaultAllowSelfSigned: bakedAllowSelfSigned,
                                           defaultKeepRunning: bakedKeepRunning,
-                                          defaultExternalLinks: bakedExternalLinks) { [weak self] in
+                                          defaultExternalLinks: bakedExternalLinks,
+                                          defaultToolbar: toolbarLayoutNames(bakedToolbarLayout),
+                                          toolbarLabels: labels) { [weak self] in
                 self?.settingsChanged()
             }
         }

@@ -6,7 +6,7 @@ import CryptoKit
 // the web-app builder. one swift entrypoint, run with `swift web-app.swift <cmd>`:
 // it compiles the shared WKWebView host (every other .swift next to this script)
 // with swiftc, then stamps .app bundles from self-contained app folders. a folder
-// holds a manifest.json plus its icon, so it is portable. point the builder at
+// holds a manifest.jsonc plus its icon, so it is portable. point the builder at
 // any folder. pure swift/foundation for the config + Info.plist, only shells out
 // to always-present macos tools (swiftc/sips/iconutil/codesign/lsregister/hdiutil/
 // osascript/diskutil).
@@ -76,7 +76,85 @@ struct AppConfig: Codable {
     var userAgent: String?   // -> WKWebView.customUserAgent (e.g. to look like Chrome)
     var inspectable: Bool?   // -> enable the Web Inspector (right-click > Inspect Element)
     var window: WindowSize?  // -> initial window size (default 1100x800)
+    var toolbar: [ToolbarEntry]? // -> toolbar layout: names, "|" split, nested arrays as groups
+    var inject: Inject?          // -> per-app js/css injected into the page
+    var buttons: [ButtonConfig]? // -> custom toolbar buttons running js in the page
 }
+
+// "inject": { "css": [...], "js": [...] }. an entry is a file name (relative to
+// the app folder) or { "file": ..., "urlContains": ... } to scope it to urls
+struct Inject: Codable {
+    var css: [InjectEntry]?
+    var js: [InjectEntry]?
+}
+
+struct InjectEntry: Codable {
+    let file: String
+    let urlContains: String?
+
+    private enum CodingKeys: String, CodingKey { case file, urlContains }
+
+    init(from decoder: Decoder) throws {
+        if let c = try? decoder.singleValueContainer(), let s = try? c.decode(String.self) {
+            file = s
+            urlContains = nil
+            return
+        }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        file = try c.decode(String.self, forKey: .file)
+        urlContains = try c.decodeIfPresent(String.self, forKey: .urlContains)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(file, forKey: .file)
+        try c.encodeIfPresent(urlContains, forKey: .urlContains)
+    }
+}
+
+// a custom toolbar button: name (usable in the toolbar layout), label, sf symbol
+// and the js it runs in the page. symbolOn makes it a toggle, the js return
+// value (a boolean) is the state. key is the menu shortcut (lowercase = cmd,
+// uppercase = cmd+shift).
+struct ButtonConfig: Codable {
+    var name: String?
+    var label: String?
+    var symbol: String?
+    var symbolOn: String?
+    var js: String?
+    var jsFile: String?
+    var key: String?
+}
+
+// a manifest toolbar entry: a button name or "|" (a string), or a nested array
+// of names forming a group
+enum ToolbarEntry: Codable {
+    case button(String)
+    case group([String])
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if let name = try? c.decode(String.self) {
+            self = .button(name)
+        } else {
+            self = .group(try c.decode([String].self))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .button(let name): try c.encode(name)
+        case .group(let names): try c.encode(names)
+        }
+    }
+}
+
+// mirrors the host's toolbarButtonLabels (Settings.swift); the builder is a
+// separate program, so the names are listed twice
+let knownToolbarButtons: Set<String> = [
+    "home", "links", "nav", "reload", "muteAudio", "muteMic", "openInBrowser", "logout",
+]
 
 struct WindowSize: Codable {
     var width: Double?
@@ -301,18 +379,18 @@ func resolveIcon(_ ref: String, appDir: String) -> String? {
 // build one self-contained app folder into <outDir>/<Name>.app. returns the bundle
 // name on success (for the built set + prune), nil when skipped.
 func buildApp(from appDir: String, hostBin: String, into outDir: String, register: Bool) -> String? {
-    let manifest = "\(appDir)/manifest.json"
+    let manifest = "\(appDir)/manifest.jsonc"
     guard fm.fileExists(atPath: manifest) else {
-        warn("web-app: no manifest.json in \(appDir), skipping")
+        warn("web-app: no manifest.jsonc in \(appDir), skipping")
         return nil
     }
     // exists but load failed: load() already printed the parse error, dont
-    // mask it with "no manifest.json"
+    // mask it with "no manifest.jsonc"
     guard var cfg = load(manifest) else {
         warn("web-app: \(manifest) could not be read or parsed, skipping")
         return nil
     }
-    if let ov = load("\(appDir)/manifest.local.json") {
+    if let ov = load("\(appDir)/manifest.local.jsonc") {
         if let v = ov.name { cfg.name = v }
         if let v = ov.url { cfg.url = v }
         if let v = ov.icon { cfg.icon = v }
@@ -329,6 +407,12 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         if let v = ov.userAgent { cfg.userAgent = v }
         if let v = ov.inspectable { cfg.inspectable = v }
         if let v = ov.window { cfg.window = v }
+        if let v = ov.toolbar { cfg.toolbar = v }
+        if let v = ov.inject {
+            cfg.inject = Inject(css: (cfg.inject?.css ?? []) + (v.css ?? []),
+                                js: (cfg.inject?.js ?? []) + (v.js ?? []))
+        }
+        if let v = ov.buttons { cfg.buttons = (cfg.buttons ?? []) + v }
     }
     guard let name = cfg.name, let url = cfg.url, let iconRef = cfg.icon else {
         warn("web-app: \(manifest) needs name, url and icon, skipping")
@@ -364,6 +448,8 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         try fm.createDirectory(atPath: "\(staged)/Contents/MacOS", withIntermediateDirectories: true)
         try fm.createDirectory(atPath: "\(staged)/Contents/Resources", withIntermediateDirectories: true)
         try fm.copyItem(atPath: hostBin, toPath: "\(staged)/Contents/MacOS/WebAppHost")
+        // the host loads its injected js and page templates from here at runtime
+        try fm.copyItem(atPath: "\(hereDir)/assets", toPath: "\(staged)/Contents/Resources/assets")
     } catch {
         warn("web-app: \(name): \(error)")
         return nil
@@ -402,6 +488,90 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     if cfg.inspectable == true { info["WebAppInspectable"] = true }
     if let w = cfg.window?.width { info["WebAppWindowWidth"] = w }
     if let h = cfg.window?.height { info["WebAppWindowHeight"] = h }
+
+    // injected js/css: file contents are baked in, so the bundle stays
+    // self-contained. a missing file loses its tweak, not the app: warn + skip.
+    func bakeInject(_ entries: [InjectEntry]?, kind: String) -> [[String: String]] {
+        (entries ?? []).compactMap { entry in
+            guard let code = try? String(contentsOfFile: "\(appDir)/\(entry.file)", encoding: .utf8) else {
+                warn("web-app: \(name): \(kind) file \(entry.file) not readable, skipping it")
+                return nil
+            }
+            var baked = ["code": code]
+            if let filter = entry.urlContains, !filter.isEmpty { baked["urlContains"] = filter }
+            return baked
+        }
+    }
+    let injectCSS = bakeInject(cfg.inject?.css, kind: "css")
+    if !injectCSS.isEmpty { info["WebAppInjectCSS"] = injectCSS }
+    let injectJS = bakeInject(cfg.inject?.js, kind: "js")
+    if !injectJS.isEmpty { info["WebAppInjectJS"] = injectJS }
+
+    // custom buttons: validated here so a broken one is a build warning, not a
+    // dead spot in the toolbar
+    var customNames: [String] = []
+    if let buttons = cfg.buttons {
+        var baked: [[String: String]] = []
+        for b in buttons {
+            guard let bName = b.name, !bName.isEmpty, let label = b.label, !label.isEmpty else {
+                warn("web-app: \(name): a custom button needs name and label, skipping it")
+                continue
+            }
+            guard !knownToolbarButtons.contains(bName), bName != "|", !customNames.contains(bName) else {
+                warn("web-app: \(name): button name \(bName) collides with an existing one, skipping it")
+                continue
+            }
+            var js = b.js
+            if js == nil, let f = b.jsFile {
+                js = try? String(contentsOfFile: "\(appDir)/\(f)", encoding: .utf8)
+                guard js != nil else {
+                    // dont let a broken file silently degrade into an event-only button
+                    warn("web-app: \(name): button \(bName): jsFile \(f) not readable, skipping the button")
+                    continue
+                }
+            }
+            // no js at all is fine: the click only fires its webapp:button event
+            var d = ["name": bName, "label": label]
+            if let js, !js.isEmpty { d["js"] = js }
+            if let v = b.symbol, !v.isEmpty { d["symbol"] = v }
+            if let v = b.symbolOn, !v.isEmpty { d["symbolOn"] = v }
+            if let v = b.key {
+                // NSMenuItem keyEquivalent is one character, anything longer is undefined
+                if v.count == 1 { d["key"] = v } else if !v.isEmpty {
+                    warn("web-app: \(name): button \(bName): key must be a single character, dropping it")
+                }
+            }
+            baked.append(d)
+            customNames.append(bName)
+        }
+        if !baked.isEmpty { info["WebAppButtons"] = baked }
+    }
+
+    if let layout = cfg.toolbar {
+        // a typo would silently drop a button at runtime, say it at build time
+        let known = knownToolbarButtons.union(customNames)
+        var baked: [Any] = []
+        var unknown: [String] = []
+        var splits = 0
+        for entry in layout {
+            switch entry {
+            case .button("|"):
+                splits += 1
+                if splits == 1 { baked.append("|") }
+            case .button(let n):
+                if known.contains(n) { baked.append(n) } else { unknown.append(n) }
+            case .group(let names):
+                unknown += names.filter { !known.contains($0) }
+                let good = names.filter { known.contains($0) }
+                if !good.isEmpty { baked.append(good) }
+            }
+        }
+        if !unknown.isEmpty {
+            warn("web-app: \(name): unknown toolbar entries \(unknown.joined(separator: ", ")), ignoring them")
+        }
+        if splits > 1 { warn("web-app: \(name): more than one \"|\" in toolbar, keeping the first") }
+        info["WebAppToolbar"] = baked
+    }
     if let links = cfg.links, !links.isEmpty {
         info["WebAppMenu"] = links.map { link -> [String: String] in
             var m = ["title": link.title, "url": link.url]
@@ -445,7 +615,7 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     return "\(name).app"
 }
 
-// managed app folders: subdirs of custom/web-apps/ that carry a manifest.json
+// managed app folders: subdirs of custom/web-apps/ that carry a manifest.jsonc
 func managedFolders() -> [String] {
     // an empty list here would read as "nothing is managed" and let prune wipe every
     // installed app, so an unreadable app root is fatal, not a warning
@@ -454,8 +624,14 @@ func managedFolders() -> [String] {
     }
     return entries.sorted().filter { folder in
         var isDir: ObjCBool = false
-        return fm.fileExists(atPath: "\(webappsDir)/\(folder)", isDirectory: &isDir) && isDir.boolValue
-            && fm.fileExists(atPath: "\(webappsDir)/\(folder)/manifest.json")
+        guard fm.fileExists(atPath: "\(webappsDir)/\(folder)", isDirectory: &isDir), isDir.boolValue else { return false }
+        // a pre-rename leftover (say, a local override on another machine) would
+        // silently lose its app or its overrides
+        for legacy in ["manifest.json", "manifest.local.json"]
+            where fm.fileExists(atPath: "\(webappsDir)/\(folder)/\(legacy)") {
+            warn("web-app: \(folder)/\(legacy) is ignored, rename it to \(legacy.dropLast("json".count))jsonc")
+        }
+        return fm.fileExists(atPath: "\(webappsDir)/\(folder)/manifest.jsonc")
     }
 }
 
@@ -480,12 +656,12 @@ func prune(keep: Set<String>, in dir: String) {
     }
 }
 
-// the effective app name of a managed folder: manifest.json with a
-// manifest.local.json name override applied, same precedence as buildApp
+// the effective app name of a managed folder: manifest.jsonc with a
+// manifest.local.jsonc name override applied, same precedence as buildApp
 func effectiveName(of folder: String) -> String? {
     let dir = "\(webappsDir)/\(folder)"
-    let local = load("\(dir)/manifest.local.json")?.name
-    return local ?? load("\(dir)/manifest.json")?.name
+    let local = load("\(dir)/manifest.local.jsonc")?.name
+    return local ?? load("\(dir)/manifest.jsonc")?.name
 }
 
 // does folder/app match one of the given slugs (folder name or slugified app name)?
@@ -496,7 +672,7 @@ func matches(folder: String, filters: Set<String>) -> Bool {
 
 func isAppFolder(_ path: String) -> Bool {
     var isDir: ObjCBool = false
-    return fm.fileExists(atPath: "\(path)/manifest.json")
+    return fm.fileExists(atPath: "\(path)/manifest.jsonc")
         && fm.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue
 }
 
@@ -572,7 +748,7 @@ func cmdBuild(_ args: [String]) {
     // explicit paths: build exactly those folders, no prune (the rest stay put)
     for path in paths {
         guard isAppFolder(path) else {
-            warn("web-app: \(path) is not an app folder (no manifest.json), skipping")
+            warn("web-app: \(path) is not an app folder (no manifest.jsonc), skipping")
             continue
         }
         if let name = buildApp(from: path, hostBin: host, into: outDir, register: register) { built.insert(name) }
@@ -674,31 +850,21 @@ func shellOutput(_ tool: String, _ a: [String]) -> (status: Int32, out: String, 
 // best-effort: when it cant (e.g. no "control Finder" automation grant), the
 // real error is printed and the dmg ships plain.
 func styleDMG(volume: String, appFile: String, bgName: String, readme: String) {
-    // relative HFS reference for the background so it stays valid after the volume
-    // is renamed: a POSIX/absolute path would point at the throwaway mount
-    let script = """
-    tell application "Finder"
-      tell disk "\(volume)"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set the bounds of container window to {300, 160, \(300 + Int(dmgSize.width)), \(160 + Int(dmgSize.height) + 28)}
-        set opts to the icon view options of container window
-        set arrangement of opts to not arranged
-        set icon size of opts to 128
-        set background picture of opts to file ".background:\(bgName)"
-        set position of item "\(appFile)" of container window to {\(Int(dmgAppPos.x)), \(Int(dmgAppPos.y))}
-        set position of item "Applications" of container window to {\(Int(dmgAppsPos.x)), \(Int(dmgAppsPos.y))}
-        try
-          set position of item "\(readme)" of container window to {\(Int(dmgReadmePos.x)), \(Int(dmgReadmePos.y))}
-        end try
-        update without registering applications
-        delay 1
-        close
-      end tell
-    end tell
-    """
+    guard let template = try? String(contentsOfFile: "\(hereDir)/assets/dmg-layout.applescript", encoding: .utf8) else {
+        warn("web-app: assets/dmg-layout.applescript is missing, the dmg ships plain")
+        return
+    }
+    let script = [
+        "__VOLUME__": volume,
+        "__RIGHT__": "\(300 + Int(dmgSize.width))",
+        "__BOTTOM__": "\(160 + Int(dmgSize.height) + 28)",
+        "__BG__": bgName,
+        "__APP__": appFile,
+        "__APP_X__": "\(Int(dmgAppPos.x))", "__APP_Y__": "\(Int(dmgAppPos.y))",
+        "__APPS_X__": "\(Int(dmgAppsPos.x))", "__APPS_Y__": "\(Int(dmgAppsPos.y))",
+        "__README__": readme,
+        "__README_X__": "\(Int(dmgReadmePos.x))", "__README_Y__": "\(Int(dmgReadmePos.y))",
+    ].reduce(template) { $0.replacingOccurrences(of: $1.key, with: $1.value) }
     let result = shellOutput("/usr/bin/osascript", ["-e", script])
     if result.status != 0 {
         let detail = result.err.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -760,7 +926,7 @@ func cmdDmg(_ args: [String]) {
     let bgName = "background.png"
     // same icon the bundle got, so a local override doesnt give the installer
     // window a different logo than the app (precedence as in buildApp)
-    let iconRef = load("\(appSrc)/manifest.local.json")?.icon ?? load("\(appSrc)/manifest.json")?.icon
+    let iconRef = load("\(appSrc)/manifest.local.jsonc")?.icon ?? load("\(appSrc)/manifest.jsonc")?.icon
     let iconPath = iconRef.flatMap { resolveIcon($0, appDir: appSrc) } ?? ""
     try? fm.createDirectory(atPath: "\(mnt)/.background", withIntermediateDirectories: true)
     // say it here, or the missing file only surfaces as the finder error below and
@@ -769,24 +935,17 @@ func cmdDmg(_ args: [String]) {
         warn("web-app: could not render the dmg background from \(iconPath.isEmpty ? "no icon" : iconPath), the window stays plain")
     }
 
-    // first-launch read-me, the app is ad-hoc signed so gatekeeper blocks it once
+    // first-launch read-me, the app is ad-hoc signed so gatekeeper blocks it once.
+    // the "open anyway" steps live in here, so a silent miss sends the recipient
+    // chasing a blocked app with no instructions
     let readme = "Read me first.txt"
-    let steps = """
-    Installing \(name)
-    ================
-
-    1. Drag \(name) onto the Applications shortcut.
-    2. First launch: macOS blocks the app once, because it is ad-hoc signed, not
-       notarised. Double-click it, dismiss the warning, then open System Settings >
-       Privacy & Security, scroll down and click "Open Anyway" next to the blocked
-       app, and confirm. After that it opens normally.
-
-    Or once in Terminal:  xattr -dr com.apple.quarantine "/Applications/\(name).app"
-    """
-    // the gatekeeper "open anyway" steps live in here, so a silent miss sends the
-    // recipient chasing a blocked app with no instructions
-    do { try steps.write(toFile: "\(mnt)/\(readme)", atomically: true, encoding: .utf8) } catch {
-        warn("web-app: could not write \(readme) into the dmg: \(error)")
+    if let steps = (try? String(contentsOfFile: "\(hereDir)/assets/dmg-readme.txt", encoding: .utf8))?
+        .replacingOccurrences(of: "__NAME__", with: name) {
+        do { try steps.write(toFile: "\(mnt)/\(readme)", atomically: true, encoding: .utf8) } catch {
+            warn("web-app: could not write \(readme) into the dmg: \(error)")
+        }
+    } else {
+        warn("web-app: assets/dmg-readme.txt is missing, the dmg ships without it")
     }
 
     styleDMG(volume: stylingVol, appFile: appName, bgName: bgName, readme: readme)
