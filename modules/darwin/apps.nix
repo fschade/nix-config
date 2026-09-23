@@ -1,12 +1,9 @@
 {...}: {
   homebrew = {
-    # taps are pinned in homebrew.nix via nix-homebrew.
     brews = [
       "mole" # deep clean and optimize your mac
     ];
 
-    # mac app store apps via mas. install once by hand so your apple account
-    # has a record, else the store refuse it.
     masApps = {
       "Xcode" = 497799835;
       "The Unarchiver" = 425424353;
@@ -24,7 +21,6 @@
     };
 
     casks = [
-      # OS enhancements
       "raycast"
       "betterdisplay"
       "itsycal"
@@ -32,11 +28,9 @@
       "karabiner-elements" # key remaps: ⌥a/o/u umlauts, ⌥n tilde (see home/gui/karabiner)
       "alt-tab" # ⌥Tab window switcher like windows, all windows not just apps
 
-      ## screenshots / recording
       "macshot" # screenshots + annotation, scroll-capture, gif, ocr, pii redact
       "cap" # screen recording with share links, open source loom
 
-      ## dev
       "orbstack" # container runtime, licensed. docker CLIs are in home/cli/dev.nix
       "bruno" # api client, git-friendly .bru files, open source, no cloud
       "cyberduck"
@@ -46,28 +40,22 @@
       "beekeeper-studio" # multi-db gui incl postgres, oss
       "switchhosts"
 
-      ## messaging
       "element"
 
-      ## notes
       "tolaria" # markdown notes / knowledge base, oss, git-backed
 
-      ## other
       "bitwarden"
       "firefox"
       "brave-browser"
       "qobuz"
       "roon"
+      "libation" # audible library manager, exports owned books to m4b/mp3
       "libreoffice"
       "ddpm" # dell monitor
       "rode-central"
       "rode-virtual-channels"
       "appcleaner"
-      "puremac" # open-source app manager + system cleaner
 
-      # casks from non-official taps. the full name user/tap/cask is what scopes
-      # trust to the single cask instead of the whole tap (trusted is on by
-      # default). https://docs.brew.sh/Tap-Trust
       "nikitabobko/tap/aerospace"
       "sozercan/repo/kaset" # yt-music
     ];

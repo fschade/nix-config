@@ -30,9 +30,10 @@ in {
       "fujitsu-scansnap-home"
       "whatsapp"
       "ticktick"
+      "obs" # streaming, only this host has the cams and the rode gear
 
-      "claude" # claude desktop app
-      "claude-code@latest" # claude code cli, rolling release channel
+      "claude"
+      "claude-code@latest"
     ];
 
     masApps = {
@@ -40,18 +41,13 @@ in {
     };
   };
 
-  # obsbot install is manual (no cask), see MANUAL.md. login item autostarts it.
-  # pushover is a native web-app wrapper built by `mise run web-app build`, see MANUAL.md.
   local.loginItems = [
     "/Applications/TickTick.app"
-    "/Applications/OBSBOT_Center.app"
-    "/Applications/Pushover.app"
+    "/Applications/OBSBOT_Center.app" # no cask, install by hand (MANUAL.md)
   ];
 
-  # web-app wrappers to build on this host (see custom/web-apps/ + MANUAL.md).
   local.webApps = [
     "dashboard"
-    "pushover"
     "opentalk"
   ];
 }
