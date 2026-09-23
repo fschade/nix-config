@@ -1,11 +1,6 @@
 import Cocoa
 import WebKit
 
-// per-app page tweaks, baked into the Info.plist by the builder: injected css
-// (documentStart, spa-aware url scoping) and js (documentEnd, once per load),
-// plus custom toolbar buttons that run js in the page. all of it main frame
-// only, evaluateJavaScript cant reach subframes anyway.
-
 struct CustomButton {
     let name: String
     let label: String
@@ -23,10 +18,6 @@ func parseCustomButtons(_ raw: [[String: String]]) -> [CustomButton] {
     }
 }
 
-// the page-facing bridge is assets/bridge-shim.js, injected in WebAppHost.swift:
-// window.webapp.state mirrors the native ui, every native action lands as a
-// "webapp:<type>" custom event, setButtonState drives toggles from the page.
-
 func parseInjected(_ raw: [[String: String]]) -> [(code: String, filter: String?)] {
     raw.compactMap { entry in
         guard let code = entry["code"] else { return nil }
@@ -34,8 +25,6 @@ func parseInjected(_ raw: [[String: String]]) -> [(code: String, filter: String?
     }
 }
 
-// a value as a js literal. json is almost js, except U+2028/29 are line
-// terminators in js string literals and would break the script.
 private func jsLiteral(_ value: Any) -> String {
     let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed])
     let json = data.flatMap { String(data: $0, encoding: .utf8) } ?? "null"
@@ -43,8 +32,6 @@ private func jsLiteral(_ value: Any) -> String {
         .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
 }
 
-// assets/css-inject.js manages the injected styles (spa-aware url scoping, see
-// the comments there), this only fills its entries placeholder
 func cssInjectionScript(_ entries: [(code: String, filter: String?)]) -> WKUserScript {
     let payload = entries.map { ["css": $0.code, "filter": $0.filter ?? ""] }
     let source = assetString("css-inject.js")
@@ -52,9 +39,6 @@ func cssInjectionScript(_ entries: [(code: String, filter: String?)]) -> WKUserS
     return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
 }
 
-// injected js runs once per document load. a url filter is checked at that
-// moment only, spa route changes dont re-run it: page-state tweaks that must
-// follow routes belong in css or in a button.
 func jsInjectionScript(_ entry: (code: String, filter: String?)) -> WKUserScript {
     var source = entry.code
     if let filter = entry.filter {
@@ -64,14 +48,11 @@ func jsInjectionScript(_ entry: (code: String, filter: String?)) -> WKUserScript
 }
 
 extension AppDelegate {
-    // fire a "webapp:<type>" event in the page, the bridge shim dispatches it
     func emitPageEvent(_ type: String, _ detail: [String: Any] = [:]) {
         let js = "window.__webappEmit && window.__webappEmit(\(jsLiteral(type)), \(jsLiteral(detail)))"
         webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
-    // the full ui state as webapp:ready, after every load: injected js that runs
-    // before this sees the empty defaults, the event is the reliable signal
     func pushPageState() {
         let buttons = Dictionary(uniqueKeysWithValues: customButtons.map { ($0.name, customStates[$0.name] ?? false) })
         emitPageEvent("ready", ["audioMuted": audioMuted,
@@ -79,14 +60,11 @@ extension AppDelegate {
                                 "buttons": buttons])
     }
 
-    // one action for the toolbar item and the menu item of a custom button
     @objc func runCustomAction(_ sender: Any) {
         var name: String?
         if let item = sender as? NSToolbarItem { name = customName(of: item.itemIdentifier) }
         if let item = sender as? NSMenuItem { name = item.representedObject as? String }
         guard let name, let button = customButtons.first(where: { $0.name == name }) else { return }
-        // without js the click is pure signal: a toggle flips natively, the page
-        // reacts over the event (and may correct via setButtonState)
         guard let js = button.js else {
             var detail: [String: Any] = ["name": name]
             if button.symbolOn != nil {
@@ -105,7 +83,6 @@ extension AppDelegate {
                 return
             }
             var detail: [String: Any] = ["name": name]
-            // toggles: the script's last expression is the new state
             if button.symbolOn != nil {
                 let state = (result as? NSNumber)?.boolValue ?? false
                 self.customStates[name] = state
@@ -124,7 +101,6 @@ extension AppDelegate {
         id.rawValue.hasPrefix("custom:") ? String(id.rawValue.dropFirst("custom:".count)) : nil
     }
 
-    // an unknown sf symbol name renders as an empty button, fall back visibly
     func customSymbol(_ name: String, _ desc: String) -> NSImage {
         NSImage(systemSymbolName: name, accessibilityDescription: desc)
             ?? symbol("wand.and.stars", desc)

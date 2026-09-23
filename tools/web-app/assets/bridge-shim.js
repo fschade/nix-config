@@ -1,7 +1,5 @@
 // the page-facing bridge, injected before everything else: window.webapp.state
 // mirrors the native ui, every native action lands as a "webapp:<type>" custom
-// event on window (webapp:ready carries the full state after each load), and
-// setButtonState lets the page drive a toggle button from its side.
 (function () {
   var state = { audioMuted: false, micMuted: false, buttons: {} };
   window.webapp = {
@@ -15,7 +13,6 @@
   };
   window.__webappEmit = function (type, detail) {
     detail = detail || {};
-    // keep the snapshot current before any listener runs
     if (type === 'ready') {
       state.audioMuted = !!detail.audioMuted;
       state.micMuted = !!detail.micMuted;

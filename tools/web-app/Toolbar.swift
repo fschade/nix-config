@@ -1,10 +1,6 @@
 import Cocoa
 
-// the window toolbar. left: overview + links menu. centered: title. right:
-// back/forward, reload, open-in-browser, logout (flexible spaces split the zones).
 extension AppDelegate {
-    // rebuilt whenever the item set can change (settings edit, first download), the
-    // links dropdown and the downloads button come and go with it
     func installToolbar() {
         let toolbar = NSToolbar(identifier: "WebAppToolbar")
         toolbar.delegate = self
@@ -12,22 +8,15 @@ extension AppDelegate {
         toolbar.centeredItemIdentifiers = [.title]
         window.toolbar = toolbar
         window.toolbarStyle = .unified
-        // hide the titlebar text so the toolbar items left-align (browser style),
-        // the centered ".title" item shows the app name in the middle instead
         window.titleVisibility = .hidden
     }
 
-    // the links list only earns its spot when it adds something: not empty, and
-    // not just one link that points home. shared by the toolbar dropdown and the
-    // go menu (Menu.swift) so both show or hide it together.
     var showsLinks: Bool {
         guard !menuItems.isEmpty else { return false }
         if menuItems.count == 1, menuItems[0].url == homeURL { return false }
         return true
     }
 
-    // order and grouping come from the manifest layout, visibility from the
-    // settings; the centered title and the downloads button are the host's
     private func defaultIdentifiers() -> [NSToolbarItem.Identifier] {
         var idFor: [String: NSToolbarItem.Identifier] = [
             "home": .home, "links": .links, "nav": .nav, "reload": .reload,
@@ -35,8 +24,6 @@ extension AppDelegate {
             "openInBrowser": .openInBrowser, "logout": .logout,
         ]
         for b in customButtons { idFor[b.name] = customIdentifier(for: b.name) }
-        // a configured button still has to earn its spot: visible per settings,
-        // and the links dropdown only when it adds something
         func mapped(_ names: [String]) -> [NSToolbarItem.Identifier] {
             names.compactMap { name in
                 guard toolbarButtons.contains(name), let id = idFor[name] else { return nil }
@@ -44,16 +31,12 @@ extension AppDelegate {
             }
         }
         var ids: [NSToolbarItem.Identifier] = []
-        // adjacent bordered items share one glass capsule, a space splits them:
-        // so every top-level entry is set apart and only the members of an
-        // explicit group sit together in one capsule
         func add(_ members: [NSToolbarItem.Identifier]) {
             guard !members.isEmpty else { return }
             if let last = ids.last, last != .flexibleSpace { ids.append(.space) }
             ids += members
         }
         var titled = false
-        // the centered title, then the downloads button opens the right zone
         func emitTitle() {
             ids += [.flexibleSpace, .title, .flexibleSpace]
             if !downloadItems.isEmpty { add([.downloads]) } // safari-style, once used

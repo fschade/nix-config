@@ -1,9 +1,5 @@
 // template, the host fills __WEBAPP_ENTRIES__ with [{css, filter}] at launch.
 // one script manages every injected style: added at documentStart so tweaks
-// apply early, re-appended at DOMContentLoaded so they sit after the site's own
-// css in the cascade. url-scoped entries toggle via disabled, and the host
-// re-runs update() on url changes, which is what makes the scoping follow spa
-// routes (popstate alone misses pushState navigation).
 (function () {
   var entries = __WEBAPP_ENTRIES__;
   var styles = [];

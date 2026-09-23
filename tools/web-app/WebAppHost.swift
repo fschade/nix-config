@@ -2,32 +2,6 @@ import Cocoa
 import UserNotifications
 import WebKit
 
-// generic web-app host. one compiled binary serves every generated .app bundle:
-// the target url, title and per-app links come from the bundle's Info.plist,
-// stamped in by web-app.swift from custom/web-apps/<slug>/manifest.jsonc. a website
-// becomes a real, standalone mac app with its own icon, window and process. a
-// native toolbar/menu to navigate, native macos notifications (WKWebView has none
-// of its own), a persistent session, "open in browser" and a real logout.
-//
-// AppDelegate is split across files by concern, each an extension:
-//   WebAppHost.swift   this file: launch, window lifecycle, settings, shared state
-//   Navigation.swift   back/forward/reload/overview/logout/zoom + the section logic
-//   Toolbar.swift      the window toolbar items
-//   Menu.swift         the menu bar (app/edit/view/window/go) + about panel
-//   Browser.swift      WKWebView delegates: policy, auth, alerts, errors, progress
-//   Downloads.swift    WKDownloadDelegate + the downloads button and popover
-//   Notifications.swift the web-notification bridge + our own page messages
-//   FindBar.swift      the ⌘F find-on-page strip
-//   Audio.swift        the mute toggles: page sound (js shim) and mic capture
-//   Inject.swift       per-app css/js injection + custom buttons running js
-//
-// Settings.swift is not in the list, it is SettingsController, not an extension.
-
-// the js the host injects and the page templates live in assets/ next to the
-// sources: the builder stamps that folder into every bundle
-// (Contents/Resources/assets), the spm dev build carries it as a package
-// resource. a bundle without an asset is a broken build: the app still runs,
-// the affected feature goes dark, and the log says which file is missing.
 func assetString(_ name: String) -> String {
     #if SWIFT_PACKAGE
     let bundle = Bundle.module
@@ -42,11 +16,6 @@ func assetString(_ name: String) -> String {
     return text
 }
 
-// the key window gets performKeyEquivalent before the main menu, and WKWebView
-// returns true for almost every ⌘-combo, so it swallows our menu shortcuts
-// (⌘1...9, ⌘R, ⌘[/⌘] ...) before the menu ever sees them. give the menu the first
-// pick, like a browser do. editing keys (⌘C/⌘V/⌘Z) still reach the web view,
-// their menu items route over the responder chain back to it.
 final class ShortcutWebView: WKWebView {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if NSApp.mainMenu?.performKeyEquivalent(with: event) == true { return true }
@@ -70,8 +39,6 @@ extension NSToolbarItem.Identifier {
 final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNavigationDelegate,
     WKScriptMessageHandler, UNUserNotificationCenterDelegate, NSToolbarDelegate,
     NSWindowDelegate, WKDownloadDelegate, NSSearchFieldDelegate {
-    // shared state. AppDelegate lives across several files, so these are internal.
-    // swift `private` is file-scoped and the extensions cant see them then.
     var window: NSWindow!
     var webView: WKWebView!
     var title = "Web App"
@@ -90,12 +57,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var externalLinksInBrowser = false    // off-domain links open in the default browser
     var toolbarButtons = Set(toolbarLayoutNames(defaultToolbarLayout)) // which layout buttons show
     var audioMuted = false                // page sound muted via the injected shim (Audio.swift)
+    var micMutePending = false            // mic mute armed before the page captures (enter a room muted)
     var micObs: NSKeyValueObservation?    // KVO on microphoneCaptureState (page starts/stops capture)
     var customButtons: [CustomButton] = [] // manifest-defined buttons running js (Inject.swift)
     var customStates: [String: Bool] = [:] // toggle state per custom button, reset on page load
     var injectedCSS: [(code: String, filter: String?)] = []
     var bakedUserAgent: String?
-    var bakedInspectable = false          // manifest opt-in: enable the web inspector
+    var bakedInspectable = false          // manifest seed for the Settings toggle
+    var inspectable = false               // page inspectable from safari > develop, no context menu item
     var windowWidth: CGFloat = 1100       // initial window size (manifest override)
     var windowHeight: CGFloat = 800
     let findBar = NSVisualEffectView() // translucent find strip
@@ -106,18 +75,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
     var downloadObs: [ObjectIdentifier: NSKeyValueObservation] = [:] // KVO per download
     weak var downloadsButton: DownloadsButton?
     var downloadsPopover: NSPopover?
+    var popups: [PopupWindow] = []          // open window.open windows (Popup.swift)
     var titleObs: NSKeyValueObservation?    // KVO on the page <title> (live titlebar)
     var urlObs: NSKeyValueObservation?      // KVO on the url (SPA route changes)
     var lastFailedURL: URL? // for the error page's Retry button
-    // UNUserNotificationCenter asserts when the process isnt a real .app bundle
-    // (e.g. run bare from xcode), so gate notifications on having a bundle id
+    var contentTerminations = 0 // consecutive web content process kills, reset on a finished load
     let hasBundle = Bundle.main.bundleIdentifier != nil
 
     func applicationDidFinishLaunching(_ note: Notification) {
         let info = Bundle.main.infoDictionary ?? [:]
         title = info["CFBundleName"] as? String ?? title
-        // production always bakes WebAppURL, the fallback only hits when run without
-        // a built bundle (e.g. from xcode), show a real page rather than blank
         bakedURL = info["WebAppURL"] as? String ?? "https://example.com/"
         bakedLinks = info["WebAppMenu"] as? [[String: String]] ?? []
         bakedAllowSelfSigned = info["WebAppAllowSelfSignedCerts"] as? Bool ?? false
@@ -127,20 +94,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         bakedInspectable = info["WebAppInspectable"] as? Bool ?? false
         customButtons = parseCustomButtons(info["WebAppButtons"] as? [[String: String]] ?? [])
         injectedCSS = parseInjected(info["WebAppInjectCSS"] as? [[String: String]] ?? [])
-        // no explicit layout: custom buttons hang off the right end. an explicit
-        // layout decides for itself, a button it doesnt list stays hidden.
         bakedToolbarLayout = (info["WebAppToolbar"] as? [Any]).map(parseToolbarLayout)
             ?? defaultToolbarLayout + customButtons.map { .button($0.name) }
         windowWidth = (info["WebAppWindowWidth"] as? Double).map { CGFloat($0) } ?? 1100
         windowHeight = (info["WebAppWindowHeight"] as? Double).map { CGFloat($0) } ?? 800
 
-        // the baked config is only the default layer, Settings edits override it
         UserDefaults.standard.register(defaults: [
             kWebAppHomeURL: bakedURL,
             kWebAppLinks: bakedLinks,
             kWebAppAllowSelfSigned: bakedAllowSelfSigned,
             kWebAppKeepRunning: bakedKeepRunning,
             kWebAppExternalLinks: bakedExternalLinks,
+            kWebAppInspectable: bakedInspectable,
             kWebAppToolbar: toolbarLayoutNames(bakedToolbarLayout),
         ])
         loadFromDefaults()
@@ -157,18 +122,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         content.addUserScript(WKUserScript(source: assetString("notification-shim.js"),
                                            injectionTime: .atDocumentStart,
                                            forMainFrameOnly: false))
-        // always injected, inert until the mute button flips it (Audio.swift). main
-        // frame only: evaluateJavaScript cant reach subframes anyway, so a
-        // cross-origin iframe playing audio stays unmuted.
         content.addUserScript(WKUserScript(source: assetString("audio-mute-shim.js"),
                                            injectionTime: .atDocumentStart,
                                            forMainFrameOnly: true))
-        // the page-facing bridge (events + state, Inject.swift), before the
-        // tweak scripts so injected js can rely on window.webapp
         content.addUserScript(WKUserScript(source: assetString("bridge-shim.js"),
                                            injectionTime: .atDocumentStart,
                                            forMainFrameOnly: true))
-        // per-app page tweaks from the manifest (Inject.swift)
         if !injectedCSS.isEmpty { content.addUserScript(cssInjectionScript(injectedCSS)) }
         for entry in parseInjected(info["WebAppInjectJS"] as? [[String: String]] ?? []) {
             content.addUserScript(jsInjectionScript(entry))
@@ -178,10 +137,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         config.userContentController = content
         config.mediaTypesRequiringUserActionForPlayback = []
         config.websiteDataStore = .default() // persistent: keeps logins across launches
-        // WKWebView's default UA drops the "Version/x Safari/605.1.15" token real
-        // safari sends, so sites that sniff for safari flag it as unsupported, even
-        // though it is the same engine. present as full desktop safari by default,
-        // unless the manifest pins a custom userAgent (e.g. to look like chrome).
         if bakedUserAgent?.isEmpty ?? true {
             config.applicationNameForUserAgent = safariUAToken()
         }
@@ -192,9 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true // pinch to zoom, ⌘+/- goes over the View menu
         if let ua = bakedUserAgent, !ua.isEmpty { webView.customUserAgent = ua }
-        // hidden dev aid: manifest "inspectable" enables the web inspector, then
-        // right-click the page -> "Inspect Element" opens the console/devtools
-        if #available(macOS 13.3, *), bakedInspectable { webView.isInspectable = true }
+        applyInspectable()
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight),
@@ -202,13 +155,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
             backing: .buffered, defer: false)
         window.title = title
         window.center()
-        // the window remembers its own frame, so the manifest size only lands on a first
-        // run: `defaults delete <bundleid> "NSWindow Frame WebAppMainWindow"` to see it again
+        window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("WebAppMainWindow")
         window.delegate = self
 
-        // the container holds the web view plus the find bar and progress bar
-        // overlaid on top of it
         let container = NSView(frame: NSRect(x: 0, y: 0, width: windowWidth, height: windowHeight))
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
@@ -220,20 +170,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         progressObs = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] wv, _ in
             self?.updateProgress(wv.estimatedProgress)
         }
-        // keep the titlebar live over SPA navigation too, not just on didCommit
         titleObs = webView.observe(\.title, options: [.new]) { [weak self] _, _ in self?.updateTitle() }
         urlObs = webView.observe(\.url, options: [.new]) { [weak self] _, _ in
             self?.updateTitle()
-            // url-scoped injected css follows spa routes over this hook
             if self?.injectedCSS.contains(where: { $0.filter != nil }) == true {
                 self?.webView.evaluateJavaScript(
                     "window.__webappUpdateInjectedCSS && window.__webappUpdateInjectedCSS()",
                     completionHandler: nil)
             }
         }
-        // keep the mic button truthful when the page starts or stops capturing on its own
-        micObs = webView.observe(\.microphoneCaptureState, options: [.new]) { [weak self] _, _ in
-            DispatchQueue.main.async { self?.updateMuteButtons() }
+        micObs = webView.observe(\.microphoneCaptureState, options: [.new]) { [weak self] wv, _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if self.micMutePending, wv.microphoneCaptureState == .active {
+                    self.micMutePending = false
+                    self.toggleMicMute() // .active flips to .muted, emits webapp:muteMic
+                    return
+                }
+                self.updateMuteButtons()
+            }
         }
 
         installToolbar()
@@ -250,8 +205,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
 
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { !keepRunning }
 
-    // keepRunning apps (e.g. pushover, for notifications) hide on close instead of
-    // quitting. a dock click brings the window back, ⌘Q still quits.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         guard keepRunning else { return true }
         window.orderOut(nil)
@@ -263,14 +216,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         return true
     }
 
-    // reopen only fires on a dock click, ⌘-Tab activates the app without it, so a
-    // keepRunning app whose window was closed (hidden) would come forward with no
-    // window and no way back. re-show it whenever the app becomes active.
     func applicationDidBecomeActive(_ note: Notification) {
         if keepRunning, let window, !window.isVisible { window.makeKeyAndOrderFront(nil) }
     }
 
-    // brings the (possibly hidden) main window back, also the "Window > Show" action
     @objc func showMainWindow() {
         window.makeKeyAndOrderFront(nil)
     }
@@ -289,7 +238,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         allowSelfSigned = d.bool(forKey: kWebAppAllowSelfSigned)
         keepRunning = d.bool(forKey: kWebAppKeepRunning)
         externalLinksInBrowser = d.bool(forKey: kWebAppExternalLinks)
+        inspectable = d.bool(forKey: kWebAppInspectable)
         toolbarButtons = Set(d.array(forKey: kWebAppToolbar) as? [String] ?? toolbarLayoutNames(bakedToolbarLayout))
+    }
+
+    func applyInspectable() {
+        if #available(macOS 13.3, *) { webView.isInspectable = inspectable }
     }
 
     @objc func openSettings() {
@@ -300,6 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
                                           defaultAllowSelfSigned: bakedAllowSelfSigned,
                                           defaultKeepRunning: bakedKeepRunning,
                                           defaultExternalLinks: bakedExternalLinks,
+                                          defaultInspectable: bakedInspectable,
                                           defaultToolbar: toolbarLayoutNames(bakedToolbarLayout),
                                           toolbarLabels: labels) { [weak self] in
                 self?.settingsChanged()
@@ -315,6 +270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         installToolbar() // the links dropdown may now appear or disappear
         buildMenu()
         updateTitle() // section mapping may have changed
+        applyInspectable()
     }
 
     // MARK: shared UI helpers
@@ -323,9 +279,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKUIDelegate, WKNaviga
         NSImage(systemSymbolName: name, accessibilityDescription: desc) ?? NSImage()
     }
 
-    // real safari's marketing version drives the UA "Version/" token, the build
-    // token stays 605.1.15 (what WKWebView already emits). read it off the installed
-    // safari so we never invent a number, fall back to just the build token.
     private func safariUAToken() -> String {
         if let plist = NSDictionary(contentsOfFile: "/Applications/Safari.app/Contents/Info.plist"),
            let v = plist["CFBundleShortVersionString"] as? String, !v.isEmpty {

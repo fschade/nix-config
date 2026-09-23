@@ -1,10 +1,6 @@
 import Cocoa
 import WebKit
 
-// the two mute toggles: page sound over the injected assets/audio-mute-shim.js
-// (wired up in WebAppHost.swift), the mic over WebKit's capture state (the page
-// just gets silence, its own mute UI doesnt know). both buttons are opt-in via
-// the toolbar config (manifest `toolbar` / Settings).
 extension AppDelegate {
     @objc func toggleAudioMute() {
         audioMuted.toggle()
@@ -13,8 +9,6 @@ extension AppDelegate {
         emitPageEvent("muteAudio", ["state": audioMuted])
     }
 
-    // also called after every page load (Browser.swift): a reload re-injects the
-    // shim with muted=false, the native state has to win again
     func applyAudioMute() {
         webView.evaluateJavaScript("window.__webappSetMuted(\(audioMuted))") { _, error in
             if let error { NSLog("web-app: could not apply the sound mute: %@", error.localizedDescription) }
@@ -22,8 +16,11 @@ extension AppDelegate {
     }
 
     @objc func toggleMicMute() {
-        // only meaningful while the page captures; .none stays .none, the button
-        // then just reads as "nothing to mute"
+        guard webView.microphoneCaptureState != .none else {
+            micMutePending.toggle()
+            updateMuteButtons()
+            return
+        }
         let next: WKMediaCaptureState = webView.microphoneCaptureState == .muted ? .active : .muted
         webView.setMicrophoneCaptureState(next) { [weak self] in
             guard let self else { return }
@@ -39,7 +36,7 @@ extension AppDelegate {
                 item.image = symbol(audioMuted ? "speaker.slash" : "speaker.wave.2", "Mute Sound")
                 item.toolTip = audioMuted ? "Unmute Sound" : "Mute Sound"
             case .muteMic:
-                let muted = webView.microphoneCaptureState == .muted
+                let muted = webView.microphoneCaptureState == .muted || micMutePending
                 item.image = symbol(muted ? "mic.slash" : "mic", "Mute Microphone")
                 item.toolTip = muted ? "Unmute Microphone" : "Mute Microphone"
             default:

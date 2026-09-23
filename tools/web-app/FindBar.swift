@@ -1,7 +1,5 @@
 import Cocoa
 
-// ⌘F find-on-page: a translucent strip across the top of the content that drives
-// webkit's own window.find: that one already highlights, selects and scrolls.
 extension AppDelegate {
     func setupFindBar(in container: NSView) {
         let height: CGFloat = 38
@@ -46,7 +44,6 @@ extension AppDelegate {
         webView.evaluateJavaScript("window.getSelection().removeAllRanges()", completionHandler: nil)
     }
 
-    // fromStart collapses the selection first, so a fresh query searches from the top
     private func runFind(backwards: Bool, fromStart: Bool = false) {
         let query = findField.stringValue
         guard !query.isEmpty else {
@@ -59,12 +56,10 @@ extension AppDelegate {
         webView.evaluateJavaScript("\(reset)window.find(\(literal), false, \(backwards), true)", completionHandler: nil)
     }
 
-    // find as you type, from the top on each keystroke
     func controlTextDidChange(_ obj: Notification) {
         if (obj.object as? NSSearchField) === findField { runFind(backwards: false, fromStart: true) }
     }
 
-    // cancelOperation is Esc in the find field, close the bar
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         if selector == #selector(NSResponder.cancelOperation(_:)) {
             hideFindBar()

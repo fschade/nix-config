@@ -17,7 +17,7 @@
   "iconBackground": "#1b3a4b",            // tile colour behind the artwork; set it
                                           // when the icon has transparent corners.
   "userAgent": "",                        // custom UA; empty = full desktop Safari
-  "inspectable": false,                   // true -> right-click > Inspect Element
+  "inspectable": false,                   // true -> attach from Safari > Develop
   "window": { "width": 1100, "height": 800 }, // initial window size
 
   "allowSelfSignedCerts": false,          // accept self-signed / invalid TLS

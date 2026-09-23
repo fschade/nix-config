@@ -6,10 +6,8 @@
   "author": "OpenTalk",
   "description": "Video conferencing.",
   "homepage": "https://opentalk.eu",
-  // call app: the mute toggles as their own group next to home
   "toolbar": ["home", ["muteAudio", "muteMic"], "links", "|", "nav", "reload", "openInBrowser", "logout"],
-  // room links are capability urls -> they live in the git-ignored
-  // manifest.local.json (merged on build), never in the tracked manifest
+  "inject": { "js": ["mic-raw.js"] },
   "links": [
     { "title": "Home", "url": "https://meet.opentalk.eu/dashboard/" }
   ]

@@ -1,7 +1,5 @@
 import Cocoa
 
-// the menu bar (app / edit / view / window / go) and the about panel. the link
-// items are shared with the toolbar's "Links" dropdown via appendLinks.
 extension AppDelegate {
     func buildMenu() {
         let mainMenu = NSMenu()
@@ -20,14 +18,12 @@ extension AppDelegate {
 
         appMenu.addItem(.separator())
 
-        // standard macos services submenu, nil action -> appkit fills + targets it
         let servicesMenu = NSMenu()
         appMenu.addItem(withTitle: "Services", action: nil, keyEquivalent: "").submenu = servicesMenu
         NSApp.servicesMenu = servicesMenu
 
         appMenu.addItem(.separator())
 
-        // hide/show route to NSApp over the responder chain, so no explicit target
         appMenu.addItem(withTitle: "Hide \(title)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = appMenu.addItem(withTitle: "Hide Others",
                                          action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
@@ -43,8 +39,6 @@ extension AppDelegate {
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "Edit")
 
-        // undo:/redo: live on NSUndoManager over the responder chain, there is no swift
-        // symbol to point #selector at
         editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
         editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
 
@@ -72,8 +66,6 @@ extension AppDelegate {
         let zoomReset = viewMenu.addItem(withTitle: "Actual Size", action: #selector(zoomReset), keyEquivalent: "0")
         for item in [zoomIn, zoomOut, zoomReset] { item.target = self }
 
-        // the mute shortcuts follow their toolbar buttons: only apps that opted
-        // into muting (call apps) get them, elsewhere they would be dead weight
         if toolbarButtons.contains("muteAudio") || toolbarButtons.contains("muteMic") {
             viewMenu.addItem(.separator())
             if toolbarButtons.contains("muteAudio") {
@@ -85,7 +77,6 @@ extension AppDelegate {
                 m.target = self
             }
         }
-        // custom buttons get menu entries too, hidden together with their button
         let visibleCustoms = customButtons.filter { toolbarButtons.contains($0.name) }
         if !visibleCustoms.isEmpty {
             viewMenu.addItem(.separator())
@@ -98,9 +89,6 @@ extension AppDelegate {
         }
         viewItem.submenu = viewMenu
 
-        // explicit way back to a keepRunning app's hidden window. activating the
-        // app already re-shows it (applicationDidBecomeActive), this is the menu
-        // entry and the ⌘⇧0 shortcut for it.
         let windowItem = NSMenuItem()
         mainMenu.addItem(windowItem)
         let windowMenu = NSMenu(title: "Window")
@@ -108,14 +96,11 @@ extension AppDelegate {
         let show = windowMenu.addItem(withTitle: "Show \(title)", action: #selector(showMainWindow), keyEquivalent: "0")
         show.keyEquivalentModifierMask = [.command, .shift]
         show.target = self
-        // routes over the responder chain, so windowShouldClose still decides
-        // whether ⌘W hides (keepRunning) or closes
         windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowItem.submenu = windowMenu
         NSApp.windowsMenu = windowMenu
 
-        // the go menu mirrors the toolbar, so everything has a keyboard shortcut
         let goItem = NSMenuItem()
         mainMenu.addItem(goItem)
         let goMenu = NSMenu(title: "Go")
@@ -147,15 +132,10 @@ extension AppDelegate {
         return menu
     }
 
-    // link items grouped by section: heading + separator whenever the section label
-    // changes. shared by the toolbar dropdown and the go menu; shortcuts assigns
-    // ⌘1...9 to the first nine links (go menu only).
     private func appendLinks(to menu: NSMenu, shortcuts: Bool) {
         var lastSection: String? = nil
         for (i, entry) in menuItems.enumerated() {
             if entry.section != lastSection {
-                // a group change gets a separator once there is something above it
-                // to separate from, a named group also gets a heading
                 if menu.items.contains(where: { $0.representedObject is URL }) { menu.addItem(.separator()) }
                 if let s = entry.section { menu.addItem(sectionHeader(s)) }
             }
@@ -174,8 +154,6 @@ extension AppDelegate {
         return item
     }
 
-    // checkmarks for the stateful View-menu items (mutes, custom toggles).
-    // NSMenu finds this over respondsToSelector, declared conformance isnt needed.
     @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(toggleAudioMute) { item.state = audioMuted ? .on : .off }
         if item.action == #selector(toggleMicMute) { item.state = webView.microphoneCaptureState == .muted ? .on : .off }
@@ -188,14 +166,11 @@ extension AppDelegate {
 
     // MARK: about
 
-    // the standard macos about panel, it picks the app icon up from the bundle
     @objc func showAbout() {
         let info = Bundle.main.infoDictionary ?? [:]
         let version = info["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = info["CFBundleVersion"] as? String ?? "1"
 
-        // credits = the manifest's description + a clickable homepage link. the
-        // author shows on its own line via NSHumanReadableCopyright.
         let small: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11),
             .foregroundColor: NSColor.secondaryLabelColor,

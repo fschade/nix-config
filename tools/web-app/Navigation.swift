@@ -1,20 +1,13 @@
 import Cocoa
 import WebKit
 
-// navigation actions shared by the toolbar and the menu, page zoom, and the
-// section logic that makes "Overview" and the titlebar site-aware.
 extension AppDelegate {
-    // "Overview" returns you to where you are: the home of the section you are
-    // currently in (its first link), else the global start url
     @objc func navigateHome() {
         emitPageEvent("navigate", ["action": "home"])
         if let url = currentSectionHome() ?? homeURL { webView.load(URLRequest(url: url)) }
     }
 
-    // the section that owns the current page's host, matched over the first grouped
-    // link on that host. drives both "Overview" and the titlebar label.
     private func currentSection() -> String? {
-        // hosts are case-insensitive, and a link can be written "Meet.Example.com"
         guard let host = webView.url?.host?.lowercased() else { return nil }
         return menuItems.first { $0.url.host?.lowercased() == host && $0.section != nil }?.section
     }
@@ -24,8 +17,6 @@ extension AppDelegate {
         return menuItems.first { $0.section == section }?.url
     }
 
-    // the navigate events fire just before the page goes away, fire-and-forget:
-    // a listener can still flush state (localStorage is synchronous)
     @objc func navigateBack() {
         emitPageEvent("navigate", ["action": "back"])
         webView.goBack()
@@ -49,13 +40,11 @@ extension AppDelegate {
         if let url = sender.representedObject as? URL { webView.load(URLRequest(url: url)) }
     }
 
-    // escape hatch, e.g. when you need the browser's password manager
     @objc func openInBrowser() {
         emitPageEvent("openInBrowser", [:])
         if let url = webView.url ?? homeURL { NSWorkspace.shared.open(url) }
     }
 
-    // real logout: wipe this app's cookies/storage, then back to the start page
     @objc func logout() {
         let alert = NSAlert()
         alert.messageText = "Log out of \(title)?"
@@ -65,9 +54,6 @@ extension AppDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         emitPageEvent("logout", [:]) // last call: the wipe below takes localStorage with it
 
-        // http basic/digest credentials live in URLCredentialStorage (keychain),
-        // not in the website data store, drop them too, or the next request
-        // silently signs back in.
         let creds = URLCredentialStorage.shared
         for (space, byUser) in creds.allCredentials {
             for credential in byUser.values { creds.remove(credential, for: space) }
@@ -93,16 +79,10 @@ extension AppDelegate {
 
     // MARK: titlebar
 
-    // centered titlebar: app, section and page joined with an em dash, as much as
-    // from the current host, page from a matching link (else the page's own
-    // <title>). tooltip stays the current url.
     func updateTitle() {
         guard let field = titleField else { return }
         field.toolTip = webView.url?.absoluteString
         var parts = [title]
-        // the section only disambiguates when the app has more than one. a lone section is
-        // a constant label, it reads as noise or is plain wrong when the label doesnt match
-        // the site.
         let section = Set(menuItems.compactMap { $0.section }).count > 1 ? currentSection() : nil
         if let section { parts.append(section) }
         if let page = currentPageLabel(), page != title, page != section { parts.append(page) }
@@ -110,9 +90,6 @@ extension AppDelegate {
         field.sizeToFit()
     }
 
-    // label for the current page: a link that points right at it (clean and
-    // controlled), else the page's own <title> with every part stripped that just
-    // repeats the app name. titles often tack it on ("Personal - OpenCloud")
     private func currentPageLabel() -> String? {
         if let url = webView.url, let match = menuItems.first(where: { $0.url == url }) {
             return match.title

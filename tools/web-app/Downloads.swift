@@ -2,9 +2,6 @@ import Cocoa
 import UniformTypeIdentifiers
 import WebKit
 
-// downloads, safari-style: a toolbar button with a progress ring that opens a
-// popover listing this session's downloads. no bottom bar.
-
 final class DownloadItem {
     enum State { case active, done, failed }
     let download: WKDownload
@@ -16,11 +13,8 @@ final class DownloadItem {
     init(_ download: WKDownload) { self.download = download }
 }
 
-// a row button needs to remember which download it acts on (stop / reveal)
 final class DownloadActionButton: NSButton { weak var item: DownloadItem? }
 
-// toolbar button with a thin accent ring for the aggregate progress of the
-// running downloads
 final class DownloadsButton: NSButton {
     private let ring = CAShapeLayer()
 
@@ -49,7 +43,6 @@ final class DownloadsButton: NSButton {
         ring.frame = bounds
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let path = CGMutablePath()
-        // full circle from the top, clockwise; strokeEnd reveals the progress arc
         path.addArc(center: center, radius: 8.5, startAngle: .pi / 2, endAngle: -.pi * 1.5, clockwise: true)
         ring.path = path
     }
@@ -62,8 +55,6 @@ extension AppDelegate {
                   suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
         let dir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
-        // the suggested name is server-controlled, keep it a plain, visible
-        // filename (belt and braces on top of webkit's own sanitizing)
         var safe = suggestedFilename.components(separatedBy: "/").joined(separator: "_")
         while safe.hasPrefix(".") { safe.removeFirst() }
         if safe.isEmpty { safe = "Download" }
@@ -72,7 +63,6 @@ extension AppDelegate {
         var n = 1
         let ext = dest.pathExtension
         let stem = dest.deletingPathExtension().lastPathComponent
-        // also dodge names a still-running download has already claimed
         let claimed = Set(downloadItems.compactMap { $0.dest?.lastPathComponent })
         while fm.fileExists(atPath: dest.path) || claimed.contains(dest.lastPathComponent) {
             dest = dir.appendingPathComponent(ext.isEmpty ? "\(stem) \(n)" : "\(stem) \(n).\(ext)")
@@ -94,7 +84,6 @@ extension AppDelegate {
     func beginDownload(_ download: WKDownload) {
         let first = downloadItems.isEmpty
         downloadItems.append(DownloadItem(download))
-        // WKDownload.progress is KVO-compliant; mirror it into the item + UI
         downloadObs[ObjectIdentifier(download)] = download.progress.observe(\.fractionCompleted) { [weak self] p, _ in
             DispatchQueue.main.async {
                 self?.item(for: download)?.fraction = p.fractionCompleted

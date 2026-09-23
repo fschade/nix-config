@@ -2,14 +2,9 @@ import Cocoa
 import UserNotifications
 import WebKit
 
-// WKWebView has no web-notification support of its own, so the injected shim posts
-// page notifications here and we raise real macos ones. the same message channel
-// also carries in-app actions from our own pages (the error page's Retry button).
 extension AppDelegate {
     func userContentController(_ controller: WKUserContentController,
                                didReceive message: WKScriptMessage) {
-        // main-frame only, an embedded frame has no business driving navigation
-        // or the toolbar
         if message.name == "webapp" {
             guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
             switch body["action"] as? String {
@@ -26,8 +21,6 @@ extension AppDelegate {
             }
             return
         }
-        // notifications only from the app's own origins, a third-party iframe
-        // could otherwise post native notifications that look like the app's
         guard hasBundle, isAppHost(message.frameInfo.securityOrigin.host),
               let body = message.body as? [String: Any] else { return }
         if body["requestPermission"] != nil {
@@ -47,9 +40,6 @@ extension AppDelegate {
         }
     }
 
-    // the shim tells the page permission is 'granted' no matter what, so a denial
-    // here is invisible to it and every notification just disappears. log it, the
-    // Console is the only place this can still show up.
     func requestNotificationAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             if let error {
@@ -60,7 +50,6 @@ extension AppDelegate {
         }
     }
 
-    // show notifications even while the app is frontmost, the default suppress them
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {

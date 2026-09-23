@@ -1,28 +1,19 @@
 import AppKit
 
-// UserDefaults keys. the app registers the config values (from Info.plist, baked
-// from the repo json) as defaults, whatever the user changes here goes into the
-// standard prefs plist and overrides them, the plain mac way.
 let kWebAppLinks = "links"
 let kWebAppHomeURL = "homeURL"
 let kWebAppAllowSelfSigned = "allowSelfSignedCerts"
 let kWebAppKeepRunning = "keepRunningWhenClosed"
 let kWebAppExternalLinks = "openExternalLinksInBrowser"
+let kWebAppInspectable = "inspectable"
 let kWebAppToolbar = "toolbarButtons"
 
-// the toolbar layout, parsed from the manifest `toolbar` json: a string is a
-// button, "|" splits left/right of the centered title, a nested array is a
-// group whose buttons share one capsule (everything else stands alone). the
-// layout (order, grouping) is the manifest's; Settings only toggles visibility
-// per button (kWebAppToolbar, a name array). the centered title and the
-// downloads button stay managed by the host.
 enum ToolbarEntry {
     case button(String)
     case group([String])
     case split
 }
 
-// what shows without a manifest `toolbar` key: the mutes are opt-in
 let defaultToolbarLayout: [ToolbarEntry] = [
     .button("home"), .button("links"), .split,
     .button("nav"), .button("reload"), .button("openInBrowser"), .button("logout"),
@@ -39,8 +30,6 @@ let toolbarButtonLabels: [String: String] = [
     "logout": "Log Out",
 ]
 
-// every button name in the layout, in layout order: the visibility default and
-// the checkbox list in Settings
 func toolbarLayoutNames(_ layout: [ToolbarEntry]) -> [String] {
     layout.flatMap { entry -> [String] in
         switch entry {
@@ -51,8 +40,6 @@ func toolbarLayoutNames(_ layout: [ToolbarEntry]) -> [String] {
     }
 }
 
-// the baked Info.plist form back into entries. unknown shapes are dropped, the
-// builder already warned about them at build time.
 func parseToolbarLayout(_ raw: [Any]) -> [ToolbarEntry] {
     raw.compactMap { item in
         if let s = item as? String { return s == "|" ? .split : .button(s) }
@@ -61,14 +48,13 @@ func parseToolbarLayout(_ raw: [Any]) -> [ToolbarEntry] {
     }
 }
 
-// settings window: edit the start page and the quick-links list. the repo json is
-// only the initial default, edits live in UserDefaults, per app, per machine.
 final class SettingsController: NSWindowController, NSTableViewDataSource, NSWindowDelegate {
     private let defaultLinks: [[String: String]]
     private let defaultHomeURL: String
     private let defaultAllowSelfSigned: Bool
     private let defaultKeepRunning: Bool
     private let defaultExternalLinks: Bool
+    private let defaultInspectable: Bool
     private let defaultToolbar: [String]
     private let toolbarLabels: [String: String] // builtin labels + custom button labels
     private let onChange: () -> Void
@@ -76,28 +62,27 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
     private var links: [[String: String]] = []
     private let homeField = NSTextField()
     private let table = NSTableView()
-    // drag payload for reordering rows: just the source index as a string
     private let rowDragType = NSPasteboard.PasteboardType("dev.webapphost.link.row")
     private let selfSignedCheck = NSButton()
     private let keepRunningCheck = NSButton()
     private let externalLinksCheck = NSButton()
+    private let inspectableCheck = NSButton()
     private var toolbarChecks: [String: NSButton] = [:]
 
-    // the checkbox grid grows with the layout's button count (custom buttons
-    // come on top of the builtin eight), the window grows with it
     private static func contentHeight(buttons: Int) -> CGFloat {
-        590 + CGFloat(max(0, (buttons + 1) / 2 - 4)) * 24
+        614 + CGFloat(max(0, (buttons + 1) / 2 - 4)) * 24
     }
 
     init(defaultLinks: [[String: String]], defaultHomeURL: String,
          defaultAllowSelfSigned: Bool, defaultKeepRunning: Bool, defaultExternalLinks: Bool,
-         defaultToolbar: [String], toolbarLabels: [String: String],
+         defaultInspectable: Bool, defaultToolbar: [String], toolbarLabels: [String: String],
          onChange: @escaping () -> Void) {
         self.defaultLinks = defaultLinks
         self.defaultHomeURL = defaultHomeURL
         self.defaultAllowSelfSigned = defaultAllowSelfSigned
         self.defaultKeepRunning = defaultKeepRunning
         self.defaultExternalLinks = defaultExternalLinks
+        self.defaultInspectable = defaultInspectable
         self.defaultToolbar = defaultToolbar
         self.toolbarLabels = toolbarLabels
         self.onChange = onChange
@@ -115,8 +100,6 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
     required init?(coder: NSCoder) { fatalError("not used") }
 
     private func buildUI() {
-        // everything except the Restore/Done row hangs from the top edge, the
-        // grid alone grows downward with the button count
         let h = Self.contentHeight(buttons: defaultToolbar.count)
         let content = NSView(frame: NSRect(x: 0, y: 0, width: 520, height: h))
 
@@ -152,11 +135,10 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
         configureCheck(selfSignedCheck, "Trust self-signed certificates", y: h - 328)
         configureCheck(keepRunningCheck, "Keep running when the window is closed", y: h - 352)
         configureCheck(externalLinksCheck, "Open external links in the browser", y: h - 376)
+        configureCheck(inspectableCheck, "Enable the Web Inspector", y: h - 400)
 
-        // visibility per toolbar button, two per row in layout order. only what
-        // the manifest layout contains is offered, the rest doesnt exist here.
         let toolbarLabel = NSTextField(labelWithString: "Toolbar buttons:")
-        toolbarLabel.frame = NSRect(x: 20, y: h - 412, width: 200, height: 20)
+        toolbarLabel.frame = NSRect(x: 20, y: h - 436, width: 200, height: 20)
         content.addSubview(toolbarLabel)
         for (i, name) in defaultToolbar.enumerated() {
             let check = NSButton()
@@ -164,7 +146,7 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
             check.title = toolbarLabels[name] ?? name
             check.target = self
             check.action = #selector(save)
-            check.frame = NSRect(x: 20 + CGFloat(i % 2) * 250, y: h - 440 - CGFloat(i / 2) * 24,
+            check.frame = NSRect(x: 20 + CGFloat(i % 2) * 250, y: h - 464 - CGFloat(i / 2) * 24,
                                  width: 230, height: 20)
             toolbarChecks[name] = check
             content.addSubview(check)
@@ -185,6 +167,7 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
         content.addSubview(selfSignedCheck)
         content.addSubview(keepRunningCheck)
         content.addSubview(externalLinksCheck)
+        content.addSubview(inspectableCheck)
         content.addSubview(restore)
         content.addSubview(done)
         window?.contentView = content
@@ -206,14 +189,12 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
         selfSignedCheck.state = d.bool(forKey: kWebAppAllowSelfSigned) ? .on : .off
         keepRunningCheck.state = d.bool(forKey: kWebAppKeepRunning) ? .on : .off
         externalLinksCheck.state = d.bool(forKey: kWebAppExternalLinks) ? .on : .off
+        inspectableCheck.state = d.bool(forKey: kWebAppInspectable) ? .on : .off
         let buttons = Set(d.array(forKey: kWebAppToolbar) as? [String] ?? defaultToolbar)
         for (name, check) in toolbarChecks { check.state = buttons.contains(name) ? .on : .off }
         table.reloadData()
     }
 
-    // persist only real deviations from the baked config: a value equal to the
-    // default gets removed again, so a later manifest change shines through and is
-    // not shadowed by a frozen copy in the prefs plist.
     @objc private func save() {
         persist(homeField.stringValue, ifDiffersFrom: defaultHomeURL, key: kWebAppHomeURL)
         let d = UserDefaults.standard
@@ -221,7 +202,7 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
         persist(selfSignedCheck.state == .on, ifDiffersFrom: defaultAllowSelfSigned, key: kWebAppAllowSelfSigned)
         persist(keepRunningCheck.state == .on, ifDiffersFrom: defaultKeepRunning, key: kWebAppKeepRunning)
         persist(externalLinksCheck.state == .on, ifDiffersFrom: defaultExternalLinks, key: kWebAppExternalLinks)
-        // only visibility is the user's, order and grouping stay the manifest's
+        persist(inspectableCheck.state == .on, ifDiffersFrom: defaultInspectable, key: kWebAppInspectable)
         let enabled = defaultToolbar.filter { toolbarChecks[$0]?.state == .on }
         if Set(enabled) == Set(defaultToolbar) { d.removeObject(forKey: kWebAppToolbar) } else { d.set(enabled, forKey: kWebAppToolbar) }
         onChange()
@@ -253,6 +234,7 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
         selfSignedCheck.state = defaultAllowSelfSigned ? .on : .off
         keepRunningCheck.state = defaultKeepRunning ? .on : .off
         externalLinksCheck.state = defaultExternalLinks ? .on : .off
+        inspectableCheck.state = defaultInspectable ? .on : .off
         for (_, check) in toolbarChecks { check.state = .on } // the default is "everything the layout has"
         table.reloadData()
         save()
@@ -265,7 +247,6 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
 
     func windowWillClose(_ notification: Notification) { save() }
 
-    // cell-based table, the columns are editable text backed by the links array
     func numberOfRows(in tableView: NSTableView) -> Int { links.count }
 
     func tableView(_ tableView: NSTableView, objectValueFor column: NSTableColumn?, row: Int) -> Any? {
@@ -275,9 +256,6 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
     func tableView(_ tableView: NSTableView, setObjectValue value: Any?, for column: NSTableColumn?, row: Int) {
         guard let key = column?.identifier.rawValue else { return }
         let text = (value as? String) ?? ""
-        // an emptied section has to drop the key, the baked links leave it out when
-        // it is empty. keeping a "" would make links differ from the defaults for
-        // good, and manifest changes stop shining through.
         if key == "section", text.isEmpty {
             links[row].removeValue(forKey: key)
         } else {
@@ -287,9 +265,6 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
     }
 
     // MARK: drag-to-reorder
-    // order matters downstream: it drives the menu order, the ⌘1...9 shortcuts and the
-    // grouping (adjacent rows with the same label get one heading, the first row with
-    // that label is the section's Overview target), so let the user drag rows into place.
 
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
         let item = NSPasteboardItem()
@@ -304,8 +279,6 @@ final class SettingsController: NSWindowController, NSTableViewDataSource, NSWin
 
     func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
                    row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
-        // the index comes off the pasteboard, so it can be stale (or foreign):
-        // range-check it before it indexes into links
         guard let item = info.draggingPasteboard.pasteboardItems?.first,
               let source = item.string(forType: rowDragType).flatMap(Int.init),
               links.indices.contains(source) else { return false }

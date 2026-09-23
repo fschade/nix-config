@@ -3,28 +3,11 @@
 import AppKit
 import CryptoKit
 
-// the web-app builder. one swift entrypoint, run with `swift web-app.swift <cmd>`:
-// it compiles the shared WKWebView host (every other .swift next to this script)
-// with swiftc, then stamps .app bundles from self-contained app folders. a folder
-// holds a manifest.jsonc plus its icon, so it is portable. point the builder at
-// any folder. pure swift/foundation for the config + Info.plist, only shells out
-// to always-present macos tools (swiftc/sips/iconutil/codesign/lsregister/hdiutil/
-// osascript/diskutil).
+// the web-app builder: compiles the shared WKWebView host, then stamps .app
+// bundles from app folders in custom/web-apps/<slug>/.
 //
-//   web-app.swift build [<path>...] [--out <dir>]
-//                                           build apps; default --out is /Applications
-//                                           (the install). no path = the host's managed
-//                                           set from custom/web-apps (allowlist + prune);
-//                                           a path builds just that folder, no prune.
-//                                           --out elsewhere = an external, unregistered .app.
-//   web-app.swift dmg <path>                package one app folder as dist/<Name>.dmg
-//
-// managed apps live in custom/web-apps/<slug>/. a full `build` (no slug) takes the
-// per-host allowlist from /etc/web-app/apps (written by modules/darwin/web-apps.nix
-// from local.webApps), an empty file means "every app". managed bundles that fall
-// out of that set are pruned, but only when the wanted set came out clean: an
-// allowlist entry that matches no folder, or a manifest that wont parse, skips the
-// prune. foreign apps, without our marker, are never touched.
+//   web-app.swift build [<path>...] [--out <dir>]   default --out /Applications
+//   web-app.swift dmg <path>                        package as dist/<Name>.dmg
 
 let fm = FileManager.default
 let env = ProcessInfo.processInfo.environment
@@ -33,7 +16,6 @@ let argv = CommandLine.arguments
 func warn(_ s: String) { FileHandle.standardError.write((s + "\n").data(using: .utf8)!) }
 func die(_ s: String) -> Never { warn(s); exit(2) }
 
-// locate the repo: honour mise's project root, else walk up from this script
 let scriptDir = URL(fileURLWithPath: argv[0]).deletingLastPathComponent()
 let root = env["MISE_PROJECT_ROOT"].map { URL(fileURLWithPath: $0) }
     ?? scriptDir.deletingLastPathComponent().deletingLastPathComponent()
@@ -67,22 +49,19 @@ struct AppConfig: Codable {
     var allowSelfSignedCerts: Bool? // opt-in: accept self-signed/invalid tls for this app
     var keepRunningWhenClosed: Bool? // closing the window hides it, app keeps running (e.g. pushover)
     var openExternalLinksInBrowser: Bool? // off-domain link clicks open in the default browser
-    // metadata: identity + about panel
     var version: String?     // -> CFBundleShortVersionString (default "1.0")
     var author: String?      // -> NSHumanReadableCopyright, shown in About
     var description: String? // -> a blurb in the About panel
     var homepage: String?    // -> a clickable link in the About panel
     var bundleId: String?    // -> CFBundleIdentifier (default com.fschade.webapp.<slug>)
     var userAgent: String?   // -> WKWebView.customUserAgent (e.g. to look like Chrome)
-    var inspectable: Bool?   // -> enable the Web Inspector (right-click > Inspect Element)
+    var inspectable: Bool?   // -> WKWebView.isInspectable (attach from Safari > Develop)
     var window: WindowSize?  // -> initial window size (default 1100x800)
     var toolbar: [ToolbarEntry]? // -> toolbar layout: names, "|" split, nested arrays as groups
     var inject: Inject?          // -> per-app js/css injected into the page
     var buttons: [ButtonConfig]? // -> custom toolbar buttons running js in the page
 }
 
-// "inject": { "css": [...], "js": [...] }. an entry is a file name (relative to
-// the app folder) or { "file": ..., "urlContains": ... } to scope it to urls
 struct Inject: Codable {
     var css: [InjectEntry]?
     var js: [InjectEntry]?
@@ -112,10 +91,8 @@ struct InjectEntry: Codable {
     }
 }
 
-// a custom toolbar button: name (usable in the toolbar layout), label, sf symbol
-// and the js it runs in the page. symbolOn makes it a toggle, the js return
-// value (a boolean) is the state. key is the menu shortcut (lowercase = cmd,
-// uppercase = cmd+shift).
+// symbolOn makes it a toggle, the js return value is the state. key is the menu
+// shortcut (lowercase = cmd, uppercase = cmd+shift).
 struct ButtonConfig: Codable {
     var name: String?
     var label: String?
@@ -126,8 +103,6 @@ struct ButtonConfig: Codable {
     var key: String?
 }
 
-// a manifest toolbar entry: a button name or "|" (a string), or a nested array
-// of names forming a group
 enum ToolbarEntry: Codable {
     case button(String)
     case group([String])
@@ -150,8 +125,7 @@ enum ToolbarEntry: Codable {
     }
 }
 
-// mirrors the host's toolbarButtonLabels (Settings.swift); the builder is a
-// separate program, so the names are listed twice
+// mirrors the hosts toolbarButtonLabels (Settings.swift), the builder is separate
 let knownToolbarButtons: Set<String> = [
     "home", "links", "nav", "reload", "muteAudio", "muteMic", "openInBrowser", "logout",
 ]
@@ -161,8 +135,7 @@ struct WindowSize: Codable {
     var height: Double?
 }
 
-// strip // line and /* */ block comments so a manifest can be documented inline
-// (JSONC). string-aware, so the // in "https://..." and the like survive it.
+// string-aware, so the // in a url survives
 func stripJSONC(_ s: String) -> String {
     var out = "", inString = false, escaped = false
     let chars = Array(s)
@@ -186,9 +159,7 @@ func stripJSONC(_ s: String) -> String {
     return out
 }
 
-// memoized by path: matches()/effectiveName() reload the same manifest several
-// times per run, and each reload reprinted the same parse error. one run never
-// sees a file change, so caching (nil included) is safe.
+// memoized by path, one run never sees a file change
 var loadCache: [String: AppConfig?] = [:]
 func load(_ path: String) -> AppConfig? {
     if let cached = loadCache[path] { return cached }
@@ -214,13 +185,10 @@ func slugify(_ s: String) -> String {
 
 // MARK: icon rendering
 
-// draw everything in sRGB so the background colour matches the (sRGB) artwork
-// exactly: a device-rgb context would shift the colours and leave a faint ring.
+// sRGB so the background matches the artwork exactly, device-rgb leaves a ring
 let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
 
-// "#rrggbb" (or "rrggbb") -> colour. white if unset/malformed, so a source that
-// already fills the tile just ignores it. set iconBackground in the manifest when
-// the artwork has transparent corners (e.g. a round logo) that should blend in.
+// set iconBackground when the artwork has transparent corners
 func background(_ hex: String?) -> CGColor {
     let white = CGColor(colorSpace: sRGB, components: [1, 1, 1, 1])!
     guard var s = hex else { return white }
@@ -230,8 +198,6 @@ func background(_ hex: String?) -> CGColor {
     return CGColor(colorSpace: sRGB, components: [red / 255, green / 255, blue / 255, 1]) ?? white
 }
 
-// full-bleed macos-style app icon: fill the rounded tile with the background
-// colour, then the artwork on top, scaled to cover it
 func renderIcon(source: String, background bg: CGColor, to output: String) -> Bool {
     let side = 1024
     guard let image = NSImage(contentsOfFile: source),
@@ -283,15 +249,9 @@ func buildIcon(source: String, background bg: CGColor, into bundle: String, slug
 
 // MARK: host + bundle building
 
-// compile the shared WKWebView host, every bundle copies it. cached under a
-// content hash in the user cache, so an unchanged source set skips the ~11s
-// swiftc run (deploy rebuilds the apps every time, the host almost never moves).
-// the host is every .swift next to this script minus the two below, so new
-// source files (the AppDelegate is split across several) get picked up on their
-// own.
+// cached under a content hash, an unchanged source set skips the ~11s swiftc run
 func compileHost() -> String {
-    // the builder + the dev manifest. a new .swift here that is NOT host code has
-    // to be named twice: here, and in Package.swift's `exclude` for the xcode side.
+// a new .swift here that is NOT host code must also go in Package.swifts `exclude`
     let notHost: Set<String> = ["web-app.swift", "Package.swift"]
     let sources = ((try? fm.contentsOfDirectory(atPath: hereDir)) ?? [])
         .filter { $0.hasSuffix(".swift") && !notHost.contains($0) }
@@ -302,8 +262,6 @@ func compileHost() -> String {
     let optFlags = ["-O"]
     let frameworks = ["-framework", "Cocoa", "-framework", "WebKit", "-framework", "UserNotifications"]
 
-    // key on what actually changes the binary: source contents, the toolchain and
-    // the flags. a swiftc upgrade or a flag edit misses the cache and recompiles.
     var hasher = SHA256()
     for path in sources {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
@@ -327,18 +285,13 @@ func compileHost() -> String {
     let tmp = NSTemporaryDirectory() + "WebAppHost-\(UUID().uuidString)"
     let status = shell("/usr/bin/swiftc", optFlags + sources + ["-o", tmp] + frameworks, quiet: false)
     guard status == 0 else { die("web-app: host compile failed (swiftc exit \(status))") }
-    // stash it under the key. a parallel build that beat us to it is fine, and a
-    // cache dir we cant write to just means we run from the temp build this once.
     try? fm.createDirectory(atPath: cacheDir, withIntermediateDirectories: true)
     if fm.fileExists(atPath: cached) { try? fm.removeItem(atPath: cached) }
     guard (try? fm.moveItem(atPath: tmp, toPath: cached)) != nil else { return tmp }
     return cached
 }
 
-// resolve the manifest icon reference to a readable file: a remote https url gets
-// downloaded to a temp file (so no third-party artwork needs committing), a local
-// ref is taken relative to the app folder. the artwork ends up in a signed bundle,
-// so plain http (tamperable in transit) is refused.
+// https only: the artwork ends up in a signed bundle, plain http is tamperable
 func resolveIcon(_ ref: String, appDir: String) -> String? {
     if ref.hasPrefix("http://") {
         warn("web-app: refusing insecure icon url \(ref), use https or a local file")
@@ -349,12 +302,9 @@ func resolveIcon(_ ref: String, appDir: String) -> String? {
             warn("web-app: could not download icon \(ref)")
             return nil
         }
-        // an error page is a perfectly valid download, a 404 body or a login
-        // interstitial would land as the artwork, so only a 200 counts
+// only a 200 counts, a 404 body would land as the artwork
         var payload: Data?
         var problem = "no response"
-        // blocking on purpose, the builder is a straight-line script. a wedged icon host
-        // costs urlsession's 60s default timeout per app
         let done = DispatchSemaphore(value: 0)
         URLSession.shared.dataTask(with: url) { data, response, error in
             defer { done.signal() }
@@ -376,16 +326,13 @@ func resolveIcon(_ ref: String, appDir: String) -> String? {
     return fm.fileExists(atPath: path) ? path : nil
 }
 
-// build one self-contained app folder into <outDir>/<Name>.app. returns the bundle
-// name on success (for the built set + prune), nil when skipped.
 func buildApp(from appDir: String, hostBin: String, into outDir: String, register: Bool) -> String? {
     let manifest = "\(appDir)/manifest.jsonc"
     guard fm.fileExists(atPath: manifest) else {
         warn("web-app: no manifest.jsonc in \(appDir), skipping")
         return nil
     }
-    // exists but load failed: load() already printed the parse error, dont
-    // mask it with "no manifest.jsonc"
+// load() already printed the parse error, dont mask it
     guard var cfg = load(manifest) else {
         warn("web-app: \(manifest) could not be read or parsed, skipping")
         return nil
@@ -418,7 +365,6 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         warn("web-app: \(manifest) needs name, url and icon, skipping")
         return nil
     }
-    // the name lands in file paths and (for dmgs) inside an applescript literal
     guard name.rangeOfCharacter(from: CharacterSet(charactersIn: "/:\"\\")) == nil else {
         warn("web-app: \(manifest): name must not contain / : \" \\, skipping")
         return nil
@@ -436,11 +382,7 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     let bundle = "\(outDir)/\(name).app"
     print("building \(name) -> \(bundle)")
 
-    // assemble in a scratch dir inside outDir and only swap it in once it signed:
-    // the installed app has to survive a build that dies halfway. same volume, so
-    // the swap is a rename, and the .app name stays intact for codesign.
-    // leading dot so a killed build leaves a hidden leftover, not a second app icon.
-    // prune only looks at *.app, so nothing collects it: rm it by hand if you see one
+    // swap in only once signed, so the installed app survives a build that dies
     let stage = "\(outDir)/.web-app-staging-\(UUID().uuidString.prefix(8))"
     let staged = "\(stage)/\(name).app"
     defer { try? fm.removeItem(atPath: stage) }
@@ -448,15 +390,12 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         try fm.createDirectory(atPath: "\(staged)/Contents/MacOS", withIntermediateDirectories: true)
         try fm.createDirectory(atPath: "\(staged)/Contents/Resources", withIntermediateDirectories: true)
         try fm.copyItem(atPath: hostBin, toPath: "\(staged)/Contents/MacOS/WebAppHost")
-        // the host loads its injected js and page templates from here at runtime
         try fm.copyItem(atPath: "\(hereDir)/assets", toPath: "\(staged)/Contents/Resources/assets")
     } catch {
         warn("web-app: \(name): \(error)")
         return nil
     }
 
-    // the Info.plist below claims an icon either way, so a bundle without one just
-    // looks broken: drop it, same as a failed sign. buildIcon said what went wrong.
     guard buildIcon(source: iconPath, background: background(cfg.iconBackground), into: staged, slug: slug) else {
         warn("web-app: \(name): no icon, skipping")
         return nil
@@ -480,7 +419,6 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         "WebAppKeepRunning": cfg.keepRunningWhenClosed ?? true,
         "WebAppExternalLinksInBrowser": cfg.openExternalLinksInBrowser ?? true,
     ]
-    // optional metadata, only stamped when the manifest sets it
     if let v = cfg.author, !v.isEmpty { info["NSHumanReadableCopyright"] = v }
     if let v = cfg.description, !v.isEmpty { info["WebAppDescription"] = v }
     if let v = cfg.homepage, !v.isEmpty { info["WebAppHomepage"] = v }
@@ -489,8 +427,7 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     if let w = cfg.window?.width { info["WebAppWindowWidth"] = w }
     if let h = cfg.window?.height { info["WebAppWindowHeight"] = h }
 
-    // injected js/css: file contents are baked in, so the bundle stays
-    // self-contained. a missing file loses its tweak, not the app: warn + skip.
+    // baked in, so the bundle stays self-contained
     func bakeInject(_ entries: [InjectEntry]?, kind: String) -> [[String: String]] {
         (entries ?? []).compactMap { entry in
             guard let code = try? String(contentsOfFile: "\(appDir)/\(entry.file)", encoding: .utf8) else {
@@ -507,8 +444,6 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     let injectJS = bakeInject(cfg.inject?.js, kind: "js")
     if !injectJS.isEmpty { info["WebAppInjectJS"] = injectJS }
 
-    // custom buttons: validated here so a broken one is a build warning, not a
-    // dead spot in the toolbar
     var customNames: [String] = []
     if let buttons = cfg.buttons {
         var baked: [[String: String]] = []
@@ -525,18 +460,16 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
             if js == nil, let f = b.jsFile {
                 js = try? String(contentsOfFile: "\(appDir)/\(f)", encoding: .utf8)
                 guard js != nil else {
-                    // dont let a broken file silently degrade into an event-only button
                     warn("web-app: \(name): button \(bName): jsFile \(f) not readable, skipping the button")
                     continue
                 }
             }
-            // no js at all is fine: the click only fires its webapp:button event
             var d = ["name": bName, "label": label]
             if let js, !js.isEmpty { d["js"] = js }
             if let v = b.symbol, !v.isEmpty { d["symbol"] = v }
             if let v = b.symbolOn, !v.isEmpty { d["symbolOn"] = v }
             if let v = b.key {
-                // NSMenuItem keyEquivalent is one character, anything longer is undefined
+                // NSMenuItem keyEquivalent is one character
                 if v.count == 1 { d["key"] = v } else if !v.isEmpty {
                     warn("web-app: \(name): button \(bName): key must be a single character, dropping it")
                 }
@@ -548,7 +481,6 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     }
 
     if let layout = cfg.toolbar {
-        // a typo would silently drop a button at runtime, say it at build time
         let known = knownToolbarButtons.union(customNames)
         var baked: [Any] = []
         var unknown: [String] = []
@@ -589,9 +521,7 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         return nil
     }
 
-    // an unsigned bundle is one gatekeeper refuses to launch, so a failed sign
-    // is a failed build, not a detail: drop it instead of installing a dud.
-    // codesign's own stderr is the only thing that says what it choked on
+    // gatekeeper refuses an unsigned bundle, so a failed sign is a failed build
     let signed = shellOutput("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", staged])
     guard signed.status == 0 else {
         let detail = signed.err.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -599,7 +529,6 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         return nil
     }
 
-    // the point of no return: everything above happened off to the side
     do {
         if fm.fileExists(atPath: bundle) { try fm.removeItem(atPath: bundle) }
         try fm.moveItem(atPath: staged, toPath: bundle)
@@ -607,7 +536,6 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
         warn("web-app: \(name): could not install the bundle: \(error)")
         return nil
     }
-    // refresh launchservices, so open/dock/login-item see the rebuilt bundle
     if register {
         let status = shell(lsregister, ["-f", bundle])
         if status != 0 { warn("web-app: \(name): lsregister failed (exit \(status)), open/dock may still show the old bundle") }
@@ -615,18 +543,14 @@ func buildApp(from appDir: String, hostBin: String, into outDir: String, registe
     return "\(name).app"
 }
 
-// managed app folders: subdirs of custom/web-apps/ that carry a manifest.jsonc
 func managedFolders() -> [String] {
-    // an empty list here would read as "nothing is managed" and let prune wipe every
-    // installed app, so an unreadable app root is fatal, not a warning
+    // fatal: an empty list would let prune wipe every installed app
     guard let entries = try? fm.contentsOfDirectory(atPath: webappsDir) else {
         die("web-app: no app root at \(webappsDir)")
     }
     return entries.sorted().filter { folder in
         var isDir: ObjCBool = false
         guard fm.fileExists(atPath: "\(webappsDir)/\(folder)", isDirectory: &isDir), isDir.boolValue else { return false }
-        // a pre-rename leftover (say, a local override on another machine) would
-        // silently lose its app or its overrides
         for legacy in ["manifest.json", "manifest.local.json"]
             where fm.fileExists(atPath: "\(webappsDir)/\(folder)/\(legacy)") {
             warn("web-app: \(folder)/\(legacy) is ignored, rename it to \(legacy.dropLast("json".count))jsonc")
@@ -635,16 +559,14 @@ func managedFolders() -> [String] {
     }
 }
 
-// the per-host allowlist file: one slug per line, empty/absent = build everything
+// one slug per line, empty/absent = build everything
 func hostAllowlist() -> Set<String> {
     guard let text = try? String(contentsOfFile: allowlistFile, encoding: .utf8) else { return [] }
     return Set(text.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
         .filter { !$0.isEmpty })
 }
 
-// remove managed bundles (marked with our fingerprint) that arent in the keep set.
-// keep is what we want installed, not what we just built: a failed build keeps its
-// existing bundle
+// keep is what we want installed, not what we just built
 func prune(keep: Set<String>, in dir: String) {
     guard let entries = try? fm.contentsOfDirectory(atPath: dir) else { return }
     for e in entries where e.hasSuffix(".app") {
@@ -656,15 +578,12 @@ func prune(keep: Set<String>, in dir: String) {
     }
 }
 
-// the effective app name of a managed folder: manifest.jsonc with a
-// manifest.local.jsonc name override applied, same precedence as buildApp
 func effectiveName(of folder: String) -> String? {
     let dir = "\(webappsDir)/\(folder)"
     let local = load("\(dir)/manifest.local.jsonc")?.name
     return local ?? load("\(dir)/manifest.jsonc")?.name
 }
 
-// does folder/app match one of the given slugs (folder name or slugified app name)?
 func matches(folder: String, filters: Set<String>) -> Bool {
     if filters.contains(folder.lowercased()) { return true }
     return filters.contains(slugify(effectiveName(of: folder) ?? folder))
@@ -692,27 +611,19 @@ func cmdBuild(_ args: [String]) {
             paths.append(args[i]); i += 1
         }
     }
-    // withIntermediateDirectories doesnt throw on an existing dir, so a throw
-    // here means outDir really cant be made: fail loud, else every app below
-    // fails with its own copy-item error and the cause is buried
     do { try fm.createDirectory(atPath: outDir, withIntermediateDirectories: true) } catch {
         die("web-app: cannot create output dir \(outDir): \(error)")
     }
-    // launchservices registration only makes sense for the install location
     let register = URL(fileURLWithPath: outDir).standardizedFileURL.path == "/Applications"
 
     let host = compileHost() // cached across runs, dont delete it
     var built = Set<String>()
 
-    // no path: build the host's managed set (allowlist governs) and prune apps that
-    // fell out of it: the deploy path. an --out elsewhere just relocates that set.
     if paths.isEmpty {
         let filters = hostAllowlist()
         let folders = managedFolders().filter { filters.isEmpty || matches(folder: $0, filters: filters) }
         var keep = Set<String>() // built now, or failed transiently, never prune those
-        // prune goes by absence, so it may only run when the wanted set is fully
-        // known: a typo in local.webApps or an unreadable manifest would otherwise
-        // uninstall a working app
+        // prune goes by absence, so only run it when the wanted set is fully known
         var canPrune = true
         var anyFailed = false // a wanted app that didnt end up built, deploy should notice
         for filter in filters.sorted() where !folders.contains(where: { matches(folder: $0, filters: [filter]) }) {
@@ -725,13 +636,9 @@ func cmdBuild(_ args: [String]) {
                 built.insert(name)
                 keep.insert(name)
             } else if let name = effectiveName(of: folder) {
-                // a failed build (say, an icon download hiccup) must not take the
-                // existing, working install down with it
                 keep.insert("\(name).app")
                 anyFailed = true
             } else {
-                // no name either, the manifest is unreadable: we cant even tell
-                // which installed bundle belongs to this folder
                 warn("web-app: \(folder): build failed and its name is unreadable, keeping the installed apps")
                 canPrune = false
                 anyFailed = true
@@ -739,13 +646,10 @@ func cmdBuild(_ args: [String]) {
         }
         if canPrune { prune(keep: keep, in: outDir) }
         print("done: \(built.sorted().joined(separator: " "))")
-        // deploy runs this under set -e: a wanted app that didnt build should fail
-        // the deploy, not pass green with the app missing or stale
         if anyFailed { warn("web-app: some managed apps did not build (see above)"); exit(1) }
         return
     }
 
-    // explicit paths: build exactly those folders, no prune (the rest stay put)
     for path in paths {
         guard isAppFolder(path) else {
             warn("web-app: \(path) is not an app folder (no manifest.jsonc), skipping")
@@ -757,31 +661,25 @@ func cmdBuild(_ args: [String]) {
     print("done: \(built.sorted().joined(separator: " "))")
 }
 
-// the dmg window size in points and where the icons sit inside it (finder's
-// top-left origin). the background image matches the window content pixel-for-point.
+// points, finder top-left origin. the background matches the window pixel-for-point.
 private let dmgSize = NSSize(width: 640, height: 510)
 private let dmgAppPos = NSPoint(x: 170, y: 190)    // the .app icon
 private let dmgAppsPos = NSPoint(x: 470, y: 190)   // the Applications shortcut
 private let dmgReadmePos = NSPoint(x: 320, y: 350) // the first-launch read-me, below
 
 func renderDMGBackground(iconPath: String, to output: String) -> Bool {
-    // draw into an explicit bitmap at exactly the point size, so a retina screen
-    // dont render it at 2x and throw off the window/background alignment
+    // explicit bitmap at point size, else a retina screen renders 2x and misaligns
     guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(dmgSize.width),
                                      pixelsHigh: Int(dmgSize.height), bitsPerSample: 8,
                                      samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                      colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
           let ctx = NSGraphicsContext(bitmapImageRep: rep) else { return false }
-    // draw straight through core graphics, the higher-level appkit path/image draw
-    // dont reliably render into a bare bitmap context. CG origin is bottom-left.
+    // the appkit draw path dont reliably hit a bare bitmap. CG origin is bottom-left.
     let cg = ctx.cgContext
 
     cg.setFillColor(NSColor.white.cgColor)
     cg.fill(CGRect(origin: .zero, size: dmgSize))
 
-    // a faint, centred logo watermark from the raw manifest artwork (not the
-    // rendered tile, iconBackground never reaches the dmg). drawn at canvas width
-    // so it bleeds off the short edges and reads as a wash, not a pasted logo.
     if let icon = NSImage(contentsOfFile: iconPath),
        let cgImage = icon.cgImage(forProposedRect: nil, context: nil, hints: nil) {
         cg.saveGState()
@@ -791,12 +689,11 @@ func renderDMGBackground(iconPath: String, to output: String) -> Bool {
         cg.restoreGState()
     }
 
-    // finder's y is top-down, flip it to CG's bottom-up
+    // finders y is top-down, flip it to CGs bottom-up
     let appC = CGPoint(x: dmgAppPos.x, y: dmgSize.height - dmgAppPos.y)
     let appsC = CGPoint(x: dmgAppsPos.x, y: dmgSize.height - dmgAppsPos.y)
     let box: CGFloat = 150
 
-    // dashed "drop here" frames around the two icon slots
     cg.setLineWidth(2)
     cg.setStrokeColor(NSColor(calibratedWhite: 0.4, alpha: 0.3).cgColor)
     cg.setLineDash(phase: 0, lengths: [6, 5])
@@ -806,7 +703,6 @@ func renderDMGBackground(iconPath: String, to output: String) -> Bool {
         cg.strokePath()
     }
 
-    // solid arrow from the app frame toward Applications
     cg.setLineDash(phase: 0, lengths: [])
     cg.setLineCap(.round)
     cg.setLineJoin(.round)
@@ -824,8 +720,6 @@ func renderDMGBackground(iconPath: String, to output: String) -> Bool {
     return (try? png.write(to: URL(fileURLWithPath: output))) != nil
 }
 
-// like shell(), but captures stdout (to read hdiutil's mount point) and stderr
-// (to quote the real codesign/osascript error instead of guessing)
 func shellOutput(_ tool: String, _ a: [String]) -> (status: Int32, out: String, err: String) {
     let p = Process()
     p.executableURL = URL(fileURLWithPath: tool)
@@ -834,8 +728,7 @@ func shellOutput(_ tool: String, _ a: [String]) -> (status: Int32, out: String, 
     p.standardOutput = outPipe
     p.standardError = errPipe
     do { try p.run() } catch { return (-1, "", "\(error)") }
-    // drain both pipes concurrently, reading them one after the other deadlocks
-    // once a child fills the other pipe's buffer before closing the first
+    // drain both pipes concurrently, one after the other deadlocks
     var out = Data(), err = Data()
     let group = DispatchGroup()
     DispatchQueue.global().async(group: group) { out = outPipe.fileHandleForReading.readDataToEndOfFile() }
@@ -845,10 +738,7 @@ func shellOutput(_ tool: String, _ a: [String]) -> (status: Int32, out: String, 
     return (p.terminationStatus, String(data: out, encoding: .utf8) ?? "", String(data: err, encoding: .utf8) ?? "")
 }
 
-// lay out the mounted volume over finder: hide the chrome, set the window + icon
-// size, drop the background picture and place the icons on their frames.
-// best-effort: when it cant (e.g. no "control Finder" automation grant), the
-// real error is printed and the dmg ships plain.
+// best-effort: without a "control Finder" grant the dmg ships plain
 func styleDMG(volume: String, appFile: String, bgName: String, readme: String) {
     guard let template = try? String(contentsOfFile: "\(hereDir)/assets/dmg-layout.applescript", encoding: .utf8) else {
         warn("web-app: assets/dmg-layout.applescript is missing, the dmg ships plain")
@@ -887,11 +777,7 @@ func cmdDmg(_ args: [String]) {
     }
     let name = String(appName.dropLast(".app".count))
 
-    // empty read-write dmg, mount, populate, style, rename, detach, compress.
-    // finder caches its window state per volume NAME and dont rewrite .DS_Store for a
-    // name it has seen, so we style under a throwaway unique name, then rename the
-    // volume to the app name. the .DS_Store, with a volume-relative background,
-    // survives the rename. the 300m slack is squeezed out by the UDZO conversion.
+    // finder caches window state per volume NAME, so style under a throwaway name
     let rw = "\(stage)/rw.dmg"
     let stylingVol = "webapp-\(UUID().uuidString.prefix(8))"
     guard shell("/usr/bin/hdiutil", ["create", "-size", "300m", "-fs", "HFS+", "-volname", stylingVol, "-ov", rw]) == 0 else {
@@ -903,14 +789,11 @@ func cmdDmg(_ args: [String]) {
         line.range(of: "/Volumes/").map { String(line[$0.lowerBound...]).trimmingCharacters(in: .whitespaces) }
     }.last
     guard attach.status == 0, let mnt, let device else {
-        // a half-done attach can still have the image mounted, and the defer above
-        // would pull the backing file out from under it
         if let device { shell("/usr/bin/hdiutil", ["detach", device, "-force"]) }
         else if let mnt { shell("/usr/bin/hdiutil", ["detach", mnt, "-force"]) }
         die("web-app: could not mount the dmg")
     }
 
-    // from here on the volume is live, every bail-out has to unmount it first
     func abort(_ message: String) -> Never {
         shell("/usr/bin/hdiutil", ["detach", device, "-force"])
         die(message)
@@ -924,20 +807,14 @@ func cmdDmg(_ args: [String]) {
     }
 
     let bgName = "background.png"
-    // same icon the bundle got, so a local override doesnt give the installer
-    // window a different logo than the app (precedence as in buildApp)
     let iconRef = load("\(appSrc)/manifest.local.jsonc")?.icon ?? load("\(appSrc)/manifest.jsonc")?.icon
     let iconPath = iconRef.flatMap { resolveIcon($0, appDir: appSrc) } ?? ""
     try? fm.createDirectory(atPath: "\(mnt)/.background", withIntermediateDirectories: true)
-    // say it here, or the missing file only surfaces as the finder error below and
-    // sends you chasing an automation grant you already have
     if !renderDMGBackground(iconPath: iconPath, to: "\(mnt)/.background/\(bgName)") {
         warn("web-app: could not render the dmg background from \(iconPath.isEmpty ? "no icon" : iconPath), the window stays plain")
     }
 
-    // first-launch read-me, the app is ad-hoc signed so gatekeeper blocks it once.
-    // the "open anyway" steps live in here, so a silent miss sends the recipient
-    // chasing a blocked app with no instructions
+    // ad-hoc signed, gatekeeper blocks it once: the "open anyway" steps are in here
     let readme = "Read me first.txt"
     if let steps = (try? String(contentsOfFile: "\(hereDir)/assets/dmg-readme.txt", encoding: .utf8))?
         .replacingOccurrences(of: "__NAME__", with: name) {
@@ -951,12 +828,9 @@ func cmdDmg(_ args: [String]) {
     styleDMG(volume: stylingVol, appFile: appName, bgName: bgName, readme: readme)
 
     shell("/bin/sleep", ["2"]) // let finder flush .DS_Store
-    // the rename is what gives the volume the app name, without it the installer
-    // window opens as "webapp-<uuid>", so say it when it didnt work
     let renamed = shell("/usr/sbin/diskutil", ["rename", mnt, name])
     if renamed != 0 { warn("web-app: could not rename the volume to \(name) (exit \(renamed)), the dmg keeps its build name") }
     shell("/bin/sync", [])
-    // by device: the mount path changed with the rename
     let detached = shell("/usr/bin/hdiutil", ["detach", device, "-force"])
     if detached != 0 { warn("web-app: could not detach \(device) (exit \(detached)), the volume stays mounted") }
 

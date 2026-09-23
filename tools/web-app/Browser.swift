@@ -1,11 +1,7 @@
 import Cocoa
 import WebKit
 
-// everything the web view does: navigation policy, off-app links, downloads,
-// http auth / self-signed certs, the load progress bar and the offline error page.
 extension AppDelegate {
-    // the hosts that belong to this app: the start page plus every configured
-    // link (and their subdomains). everything else is a third party.
     func isAppHost(_ host: String?) -> Bool {
         guard let host = host?.lowercased() else { return false }
         var hosts = Set(menuItems.compactMap { $0.url.host?.lowercased() })
@@ -13,8 +9,6 @@ extension AppDelegate {
         return hosts.contains(host) || hosts.contains { host.hasSuffix("." + $0) }
     }
 
-    // grant camera/mic only to the app's own origins (macOS TCC still gates it at
-    // the OS level): a third-party frame that ends up in the view gets nothing.
     func webView(_ webView: WKWebView,
                  requestMediaCapturePermissionFor origin: WKSecurityOrigin,
                  initiatedByFrame frame: WKFrameInfo,
@@ -23,21 +17,8 @@ extension AppDelegate {
         decisionHandler(isAppHost(origin.host) ? .grant : .deny)
     }
 
-    // target=_blank / window.open would otherwise be dropped, load it in place.
-    // about:blank popups (opened blank, scripted later) would blank the main view
-    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
-                 for navigationAction: WKNavigationAction,
-                 windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if let url = navigationAction.request.url, url.absoluteString != "about:blank" {
-            webView.load(URLRequest(url: url))
-        }
-        return nil
-    }
-
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        // app-scheme links (mailto:/tel:/facetime:/...) the web view cant load itself.
-        // hand them to whichever app owns the scheme instead of dead-ending
         let handoffSchemes: Set<String> = ["mailto", "tel", "facetime", "facetime-audio", "sms", "maps"]
         if let url = navigationAction.request.url, let scheme = url.scheme?.lowercased(),
            handoffSchemes.contains(scheme) {
@@ -45,10 +26,6 @@ extension AppDelegate {
             decisionHandler(.cancel)
             return
         }
-        // clicked link to another domain -> default browser. on unless a manifest
-        // turns it off. gated on .linkActivated so oauth/sso redirects stay inside
-        // the app; any configured link host counts as in-app (one app can front
-        // several sites).
         if externalLinksInBrowser, navigationAction.navigationType == .linkActivated,
            let url = navigationAction.request.url, url.host != nil, !isAppHost(url.host) {
             NSWorkspace.shared.open(url)
@@ -73,9 +50,6 @@ extension AppDelegate {
         beginDownload(download)
     }
 
-    // http basic/digest auth like a browser: prompt once, keep it in the keychain
-    // and reuse it. server-trust (self-signed) only when the app opted in, and
-    // only for the app's own hosts, third-party origins keep normal tls checks.
     func webView(_ webView: WKWebView, didReceive challenge: URLAuthenticationChallenge,
                  completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         let space = challenge.protectionSpace
@@ -101,8 +75,6 @@ extension AppDelegate {
         }
     }
 
-    // WKWebView renders no UI for alert()/confirm()/prompt(); without these
-    // delegates an alert is dropped and a confirm always answers false.
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
                  initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
         let alert = NSAlert()
@@ -160,14 +132,16 @@ extension AppDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard webView === self.webView else { return }
         updateTitle()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard webView === self.webView else { return }
+        contentTerminations = 0 // the page stands again, the crash backoff starts over
         updateTitle()
         updateProgress(1)
         applyAudioMute() // the fresh page's shim starts unmuted, the native state wins
-        // a fresh page dropped whatever the toggle buttons had switched on
         if !customStates.isEmpty {
             customStates = [:]
             updateCustomButtons()
@@ -175,20 +149,18 @@ extension AppDelegate {
         pushPageState() // webapp:ready with the full ui state
     }
 
-    // load errors (network down, dns, rejected cert) leave a blank page otherwise,
-    // so show an inline message with a Retry button. both phases land here;
-    // provisional is the common one (the server never answered).
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        guard webView === self.webView else { return }
         showErrorPage(error)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard webView === self.webView else { return }
         showErrorPage(error)
     }
 
     // MARK: load progress
 
-    // thin accent bar pinned to the top edge of the content, hidden when idle
     func setupProgressBar(in container: NSView) {
         progressBar.wantsLayer = true
         progressBar.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
@@ -210,13 +182,31 @@ extension AppDelegate {
                                    width: container.bounds.width * CGFloat(progress), height: 3)
     }
 
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard webView === self.webView else {
+            popups.first { $0.webView === webView }?.close()
+            return
+        }
+        contentTerminations += 1
+        guard contentTerminations <= 3 else {
+            showErrorPage(NSError(domain: "WebAppHost", code: 1, userInfo: [
+                NSLocalizedDescriptionKey:
+                    "The page kept crashing. That usually means this Mac is out of memory.",
+            ]))
+            return
+        }
+        let target = webView.url ?? homeURL
+        let delay = Double(contentTerminations - 1) * 3
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, let target else { return }
+            self.webView.load(URLRequest(url: target))
+        }
+    }
+
     // MARK: error page
 
     private func showErrorPage(_ error: Error) {
         let ns = error as NSError
-        // a load we cancelled or superseded reports as a failure, and the error page would
-        // paint over a working page. -999 is the cancel. WebKit 102 is what a navigation
-        // reports once it turned into a download, 101 and 204 are the other policy codes.
         if ns.code == NSURLErrorCancelled { return }
         if ns.domain == "WebKitErrorDomain", [101, 102, 204].contains(ns.code) { return }
         lastFailedURL = (ns.userInfo[NSURLErrorFailingURLErrorKey] as? URL) ?? webView.url ?? homeURL
