@@ -1,15 +1,5 @@
 #!/usr/bin/env bash
-# claude code PreToolUse guard for Bash. blocks destructive and outward-facing
-# command shapes that plain deny globs cant catch (flag permutations, compound
-# commands, sh -c wrappers. we scan the whole command string, so wrapped
-# one-liners match too).
-# input: tool call json on stdin. block: message on stderr + exit 2.
-#
-# patterns borrowed with thanks from:
-#   github.com/trailofbits/claude-code-config (rm flag permutations, pipe-to-shell)
-#   github.com/AnastasiyaW/claude-code-config (destructive git/k8s, secret readers)
-#   github.com/davila7/claude-code-templates (interpreter wrapper idea)
-# trimmed and rewritten for this setup.
+# patterns borrowed with thanks from github.com/AnastasiyaW/claude-code-config
 set -euo pipefail
 
 block() {
@@ -17,108 +7,39 @@ block() {
   exit 2
 }
 
-# every exit code except 2 lets the call through, so a payload we cannot read has
-# to end in a block: no command parsed means no command checked. an empty payload
-# is a different thing, there is simply nothing in it to check. the payload is
-# kept whole, the outward rules below also need its cwd.
 json="$(cat)"
 cmd="$(jq -r '.tool_input.command // empty' <<<"$json")" ||
   block "unreadable hook input. the guard does not let through what it cannot parse."
 [ -z "$cmd" ] && exit 0
 
-# grep works line by line, so a command split over several lines slips past
-# every rule whose pattern spans more than one token: `git \<newline>push` was
-# not a push. a continuation joins two tokens, so it becomes a space. a plain
-# newline separates two commands, so it becomes the separator the anchors below
-# already accept, not a space, or `rm` on its own line would stop being anchored.
 cmd="${cmd//\\$'\n'/ }"
 cmd="${cmd//$'\n'/; }"
 
-# quoting the command name defeats every rule below: `'rm' -rf` has no word
-# boundary after rm, `"kubectl" delete ns` none before it. so scan a
-# quote-stripped copy too. grep is line based and no pattern spans lines, so
-# appending it as a second line means "matches either form": the stripped copy
-# catches the quoted spelling, the raw one keeps the rules that need the quotes
-# (git -C "a b" push, cat ".env").
 scan="$cmd"$'\n'"${cmd//[\'\"]/}"
 
 has() { grep -qiE "$1" <<<"$scan"; }
 hasC() { grep -qE "$1" <<<"$scan"; } # case sensitive, for -D vs -d style flags
 
-# what ends a word for the rules that need to see the end of one. a separator
-# ends it just like a space or the line end does: `then git push; fi` and
-# `do kubectl delete pods --all; done` have nothing but the `;` after the token.
-# a closing command-substitution backtick counts too, or a token pressed against
-# it (echo backtick-git push-backtick) slips every rule that uses this class.
 end='([[:space:];|&`)]|$)'
 
-# rm with recursive+force in any flag spelling. rm is matched as a word, not
-# anchored on a separator: an anchor misses everything with something in front,
-# `sudo rm`, `then rm`, `do rm`, `(rm ...)` and every wrapper (sh -c "rm ...",
-# xargs, find -exec). false positives on unrelated flags in compound commands
-# are fine: split the command or delete without -f.
-if has '(^|[^a-z0-9_-])rm[[:space:]]' &&
-  has '(^|[[:space:]])-[a-z]*r|--recursive' &&
-  has '(^|[[:space:]])-[a-z]*f|--force'; then
-  block "rm with recursive+force. delete precisely (no -f) or leave it to the user."
-fi
-
-# push has a deny rule in settings too, but that one matches the whole command
-# string, so `cd repo && git push` walks past it. never-push is the hardest rule
-# in CLAUDE.md, so it gets its own here.
-#
-# only git's own options may sit between `git` and the subcommand. every git rule
-# below goes through this chain, or `git -C dir reset --hard` walks past a rule
-# that expects the subcommand glued to `git`. a subcommand breaks the chain,
-# which is what tells `git -C dir push` from a `git ... commit -m` about pushing.
 gitopt='(-[Cc][[:space:]]+("[^"]*"|[^[:space:];|&]+)|--[a-z-]+(=[^[:space:];|&]+)?|-[pP])'
 gitpre="git([[:space:]]+${gitopt})*[[:space:]]+"
 
-# a -m message is prose, not a command: `git commit -m "docs: explain git push
-# flow"` is not a push. so blank the message argument out for this rule. it is
-# the one git rule that still has to see quoted spans (`git "push"`,
-# sh -c "git push"), so it cannot use the `bare` copy below.
 nomsg="$(sed -E 's/(-[a-zA-Z]*m|--message=?)[[:space:]]*("[^"]*"|'"'"'[^'"'"']*'"'"')/\1 _/g' <<<"$cmd")"
 grep -qiE "${gitpre}push${end}" <<<"$nomsg"$'\n'"${nomsg//[\'\"]/}" &&
   block "git push. pushing is the user's call, always."
-hasC "${gitpre}branch[[:space:]]+(-[a-zA-Z]*D|--delete[[:space:]]+--force|--force[[:space:]]+--delete)" &&
-  block "git branch -D. use -d or let the user force it."
-has "${gitpre}clean[[:space:]]+[^;|&]*-[a-z]*f" &&
-  block "git clean -f. untracked files are not yours to bulk delete."
-has "${gitpre}(checkout|restore)[[:space:]]+([^;|&]*[[:space:]])?(--[[:space:]]+)?\.${end}" &&
-  block "mass discard of working tree changes."
-has "${gitpre}reset[[:space:]]+[^;|&]*--hard" &&
-  block "git reset --hard."
-# a blanket stage takes whatever else is in the tree with it, including another
-# session's half-finished work. naming the paths is also the only way the commit
-# ends up being what its message says.
-#
-# these three scan a copy with quoted spans dropped: a commit message may talk
-# about `git add -A` or `--all` without being one, and that message is exactly
-# what gets written when this rule fires. but dropping every quoted span also
-# drops a quoted command name (`"git" add -A`), which then walks past every rule.
-# so unquote the single-token quoted words first (no space inside), and only
-# then drop the remaining multi-word spans, which is where the messages live.
 bare="$(sed -E 's/"([^" ]*)"/\1/g; s/"[^"]*"//g' <<<"$cmd" |
   sed -E "s/'([^' ]*)'/\1/g; s/'[^']*'//g")"
 grep -qE "${gitpre}add[^;|&]*([^-]-[a-zA-Z]*A[a-zA-Z]*|[[:space:]]--all)${end}" <<<"$bare" &&
   block "git add -A stages everything in the tree. name the paths of this change."
 grep -qE "${gitpre}add[[:space:]]+([^;|&]*[[:space:]])?(--[[:space:]]+)?\.${end}" <<<"$bare" &&
   block "git add . stages everything below the cwd. name the paths of this change."
-# the short form needs a non-dash in front of its dash, so `--amend`, `--author`
-# and `--allow-empty` stay allowed. blocking an amend would be absurd, and this
-# rule blocked one within a minute of being written.
 grep -qE "${gitpre}commit[^;|&]*([^-]-[a-z]*a[a-z]*|[[:space:]]--all)${end}" <<<"$bare" &&
   block "git commit -a stages every tracked change. stage the paths you mean, then commit."
 has "${gitpre}(filter-branch|reflog[[:space:]]+expire|gc[[:space:]]+[^;|&]*--prune=now)" &&
   block "git history rewrite/expire."
-# two independent configs converged on this one: harperreed/dotfiles and
-# jbarbier/CLAUDE.md, thanks.
 has 'git[[:space:]][^;|&]*--no-(verify|hooks|pre-commit-hook)' &&
   block "bypassing git hooks (--no-verify). fix what the hook complains about."
-# -n is git's own short form of --no-verify, but only on commit: `git clean -n`
-# is a dry run and `grep -n` is line numbers. reads the quoted-span-free copy,
-# a commit message may talk about some -n flag without being one.
 grep -qE "${gitpre}commit[^;|&]*[^-]-[a-z]*n[a-z]*${end}" <<<"$bare" &&
   block "git commit -n is the short form of --no-verify. fix what the hook complains about."
 
@@ -129,103 +50,34 @@ has "kubectl[[:space:]]+delete[[:space:]]+[^;|&]*--all${end}" &&
 has 'docker[[:space:]]+system[[:space:]]+prune[[:space:]]+[^;|&]*(-[a-z]*a|--volumes)' &&
   block "docker system prune -a/--volumes."
 
-# pipe from the internet straight into a shell, also via sudo and with a
-# filter in between (curl ... | tee f | sh)
-has "(curl|wget)[[:space:]][^;&]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z|da|fi)?sh${end}" &&
-  block "piping a download into a shell. download, inspect, then run."
-
-# the Read() deny rules in settings.json only cover the file tools, this closes
-# the `cat ~/.ssh/...` side. only readers are blocked here: ssh/scp naming a key
-# path are the remote shell rule's business further down, git stays usable.
-#
-# the reader is matched as a word, like rm above: anchoring on a separator let
-# every wrapped form past, `sudo cat`, `echo $(cat ...)`, `xargs cat`, a cat
-# inside a then/do block. both rules need a reader AND a secret path in the same
-# line, so the loose match costs little.
-readers='(cat|bat|less|more|head|tail|strings|base64|xxd|od|hexdump|grep|rg|awk|sed)'
-secretpaths='(~|\$HOME|/Users/[^/[:space:]]+)/(\.(ssh/|aws/|gnupg/|kube/|config/sops/|config/gh/|docker/config\.json|git-credentials|npmrc)|Library/Keychains/)'
-has "(^|[^a-z0-9_-])${readers}[[:space:]][^;|&]*${secretpaths}" &&
-  block "reading credential files via shell. those paths are off limits."
-# the exception belongs to a name, not to the command: naming a template next to
-# the real file (`cat .env .env.example`) must not unlock it. so drop the
-# template names first, whatever `.env` is left is the one with the secrets.
-#
-# the name ends at anything that cant be part of it, not just whitespace: a
-# closing quote (`cat ".env"`) or a paren (`echo $(cat .env)`) end it too, while
-# a letter does not, so .envrc stays readable.
-envscan="$(sed -E 's/\.env\.(example|sample|template|dist)([^A-Za-z0-9_.-]|$)/\2/g' <<<"$scan")"
-grep -qiE "(^|[^a-z0-9_-])${readers}[[:space:]]([^;|&]*[[:space:]])?[^;|&[:space:]]*\.env(\.[A-Za-z0-9_-]+)?([^A-Za-z0-9_.-]|$)" <<<"$envscan" &&
-  block ".env files hold secrets. templates (.env.example etc) are fine to read."
-
-# global agent skills are declared in nix-config (home/cli/claude), and both
-# ~/.agents and ~/.claude/skills are read-only store paths, so a global install
-# would fail anyway, this just says why. project scope stays fine.
 has "skills[[:space:]]+(add|install|i|a|remove|rm|update|upgrade)[[:space:]][^;|&]*(-[a-z]*g|--global)${end}" &&
   block "global skill install. skills live in nix-config (home/cli/claude/default.nix), declare it there."
 
-# same for plugins, we run none. ~/.claude/plugins is an empty read-only store
-# path and the official marketplace autoinstall is off. an lsp goes into
-# settings.json under lspServers, anything else into skills/ or agents/.
 has 'claude[[:space:]]+plugins?[[:space:]]+(install|i|add|marketplace|update|enable)' &&
   block "plugin install. this setup runs no plugins, declare the skill, agent or lspServers entry in home/cli/claude instead."
 
-# dd matched as a word, like rm: a separator anchor let `sudo dd`, `then dd` and
-# `xargs dd` past. the char before dd must not be one that could belong to a name
-# (`add`, an odd path), so a space, a separator or the line start.
-has '(^|[^a-z0-9_/.-])dd[[:space:]]+[^;|&]*of=/dev/(disk|rdisk|sd|nvme)' &&
-  block "dd onto a block device."
 has ':\(\)[[:space:]]*\{[[:space:]]*:\|:' &&
   block "fork bomb."
 
-# nothing goes outward. these shapes are not destructive, they are public: a PR,
-# an issue, a comment, a release, a published package, a mail. sending one is
-# the user's, never ours, same deal as push.
-#
-# they read the message-blanked copy the push rule builds, so `git commit -m
-# "docs: how to gh pr create"` stays prose. quoted spans are still in it, a
-# wrapped `sh -c "gh pr create"` is still a create.
 out="$nomsg"$'\n'"${nomsg//[\'\"]/}"
 hasO() { grep -qiE "$1" <<<"$out"; }
 
-# forge clis: object plus write verb, glued together in that order. the read
-# side (`gh pr list`, `gh issue view`, `glab mr diff`) keeps working, and a verb
-# that only appears in an argument (`gh pr list --state closed`) is not a write.
-# alias/config are local, not the forge, so their object gets blanked before
-# the verb rule looks: `gh alias set` and `gh config set` stay usable. `run`
-# and `rerun` are not in the verb list, triggering the user's own ci (`gh
-# workflow run`, `gh run rerun`) is not posting.
 outF="$(sed -E 's/(gh|glab|tea|hub)([[:space:]]+)(alias|config)[[:space:]]/\1\2_ /g' <<<"$out")"
 forgeverb='(create|new|comment|edit|delete|close|reopen|merge|review|approve|ready|publish|upload|transfer|rename|pin|lock|dispatch|sync|set|add|fork)'
 grep -qiE "(^|[^a-z0-9_-])(gh|glab|tea|hub)[[:space:]]+[a-z-]+[[:space:]]+${forgeverb}${end}" <<<"$outF" &&
   block "posting to a forge. PRs, issues, comments, releases are the user's to send, never yours."
-# hub skips the object, `hub pull-request` opens one on its own
 hasO "(^|[^a-z0-9_-])hub[[:space:]]+(pull-request|fork|create)${end}" &&
   block "posting to a forge. PRs, issues, comments, releases are the user's to send, never yours."
 
-# the api is the way around every rule above, so it gets the same treatment
 ghapi="(^|[^a-z0-9_-])(gh|glab)[[:space:]]+api[[:space:]]"
 method="(-X|--method)[[:space:]]*=?[[:space:]]*"
 hasO "${ghapi}[^;|&]*${method}(POST|PUT|PATCH|DELETE)" &&
   block "gh api with a write method. reading the api is fine, writing is not."
-# a field flips gh api to POST by itself (`gh api --help` says so), so the read
-# form of a graphql query has to spell out --method GET.
 if hasO "$ghapi" && ! hasO "${method}GET" &&
   hasO "${ghapi}([^;|&]*[[:space:]])?(-f|-F|--field|--raw-field|--input)([[:space:]]|=)"; then
   block "gh api with fields defaults to POST. add --method GET if you meant to read."
 fi
 
-# dev hosts are open by default: localhost, loopback, docker's name for the
-# host machine, the tlds reserved for local use (.test, .localhost, rfc 6761).
-# a project widens a host rule with a file at its root, one host per line,
-# # comments and blanks skipped, found by walking up from the payload cwd,
-# first hit wins: .claude/outbound-hosts for the http write rules,
-# .claude/ssh-hosts for the remote shell rule. the user maintains those files,
-# the agent does not add hosts. project settings.json cant do this, an allow
-# rule never overrides a blocking hook.
-#
-# every host check below is textual and guards intent, not an adversary: the
-# command must name an allowed host, a bare remote domain sitting next to an
-# allowed one can slip.
 projhosts() {
   local d
   d="$(jq -r '.cwd // empty' <<<"$json")"
@@ -242,64 +94,178 @@ localhosts='localhost|127\.[0-9]+\.[0-9]+\.[0-9]+|\[?::1\]?|0\.0\.0\.0|host\.doc
 okhosts="$localhosts"
 extra="$(projhosts outbound-hosts)"
 [ -n "$extra" ] && okhosts="$okhosts|$extra"
+
+# every real target must be listed, a listed name elsewhere in the line unlocks nothing
+hostok() { # $1 allowed pattern, $2 [user@]host[:port][/path] or url
+  local h
+  h="$(tr '[:upper:]' '[:lower:]' <<<"$2")"
+  h="${h#*://}"
+  h="${h##*@}"
+  if [[ "$h" == \[* ]]; then h="${h%%]*}]"; else h="${h%%[:/?#]*}"; fi
+  [ -n "$h" ] && grep -qxE "($1)" <<<"$h"
+}
+segments() { tr ';|&()`' '\n\n\n\n\n ' <<<"$1"; }
+# a listed host is allowed, not approved. ask rules miss a wrapped or absolute call
+asks=""
+listed() { hostok "$1" "$2" && { hostok "$localhosts" "$2" || asks="$asks $2"; }; }
+
+# an unknown option value is taken as a host and fails, so unknown ends in a block
 localWrite() {
-  local low
-  low="$(tr '[:upper:]' '[:lower:]' <<<"$out")"
-  # an allowed host must be named as a target, not buried in a longer name:
-  # something url-ish in front (start, space, quote, =, @, ://), a port, path
-  # or end behind. `localhost.example.com` matches neither side.
-  grep -qE "(^|[[:space:]\"'=@]|://)(${okhosts})([:/[:space:]\"']|$)" <<<"$low" || return 1
-  # then drop every allowed scheme url and see if a scheme to somewhere else
-  # remains. the boundary char after the host is consumed on purpose: without
-  # it the sed eats `http://localhost` out of `http://localhost.example.com`
-  # and the leftover no longer looks like a url.
-  ! sed -E "s#https?://(${okhosts})(:[0-9]+)?([/[:space:]\"']|\$)##g" <<<"$low" | grep -qE 'https?://'
+  local u line seg found=0 i o tool
+  while IFS= read -r u; do
+    listed "$okhosts" "$u" || return 1
+    found=1
+  done < <(grep -oiE "https?://[^[:space:]\"'/]+" <<<"$out")
+  seg="$(segments "$(sed -E 's/"([^" ]*)"/\1/g; s/"[^"]*"/_/g' <<<"$nomsg" |
+    sed -E "s/'([^' ]*)'/\1/g; s/'[^']*'/_/g")")"
+  while IFS= read -r line; do
+    read -ra t <<<"$line"
+    tool=""
+    for ((i = 0; i < ${#t[@]}; i++)); do
+      case "$(tr '[:upper:]' '[:lower:]' <<<"${t[i]##*/}")" in
+        curl | wget | http | https | xh | xhs) tool="${t[i]##*/}" && break ;;
+      esac
+    done
+    [ -z "$tool" ] && continue
+    for ((i = i + 1; i < ${#t[@]}; i++)); do
+      o="${t[i]}"
+      case "$o" in
+        -K | --config | --config=* | --resolve* | --connect-to*) return 1 ;;
+        --data | --data-* | --form | --form-string | --upload-file | --header | --output | --output-document | \
+          --user | --cookie | --cookie-jar | --user-agent | --referer | --write-out | --request | --method | \
+          --max-time | --connect-timeout | --json | --post-data | --post-file | --body-data | --body-file | --auth)
+          i=$((i + 1)) ;;
+        --*) ;;
+        -*) [[ "${o: -1}" == [dFTHouAbcewXmrzCDaO] ]] && i=$((i + 1)) ;;
+        @* | *=* | GET | POST | PUT | PATCH | DELETE | HEAD | OPTIONS) ;;
+        :*) found=1 ;; # httpie shorthand for localhost
+        *)
+          listed "$okhosts" "$o" || return 1
+          found=1
+          # httpie/xh: request items follow the url
+          [[ "$tool" == http* || "$tool" == xh* ]] && break
+          ;;
+      esac
+    done
+  done <<<"$seg"
+  [ "$found" = 1 ]
 }
 
-# http clients writing. GET stays open, a body or a write method does not,
-# unless every named target is a dev host (okhosts above).
-if ! localWrite; then
-  hasO '(^|[^a-z0-9_-])(curl|wget)[[:space:]][^;|&]*((-X|--request|--method)[[:space:]]*=?[[:space:]]*(POST|PUT|PATCH|DELETE)|--data|--form|--upload-file|--json|--post-data|--post-file|--body-data|--body-file)' &&
+httpverb='(^|[^a-z0-9_-])(curl|wget)[[:space:]][^;|&]*((-X|--request|--method)[[:space:]]*=?[[:space:]]*(POST|PUT|PATCH|DELETE)|--data|--form|--upload-file|--json|--post-data|--post-file|--body-data|--body-file)'
+curlbody='(^|[^a-z0-9_-])curl[[:space:]]+([^;|&]*[[:space:]])?-[a-zA-Z]*[dFT]([[:space:]]|=|@|$)'
+httpie='(^|[^a-z0-9_-])(http|xh)[[:space:]]+([^;|&]*[[:space:]])?(POST|PUT|PATCH|DELETE)([[:space:]]|$)'
+if localWrite; then
+  hasO "$httpverb" || grep -qE "$curlbody|$httpie" <<<"$out" || asks=""
+else
+  hasO "$httpverb" &&
     block "an http write (POST/PUT/PATCH/DELETE or a body). reading a url is fine, writing to one is not."
-  # curls short flags are case sensitive: -d -F -T write, -f -t do not. matched
-  # inside a bundle too, `curl -sd @payload` is a POST.
-  grep -qE '(^|[^a-z0-9_-])curl[[:space:]]+([^;|&]*[[:space:]])?-[a-zA-Z]*[dFT]([[:space:]]|=|@|$)' <<<"$out" &&
+  grep -qE "$curlbody" <<<"$out" &&
     block "curl -d/-F/-T sends a body. reading a url is fine, writing to one is not."
-  # httpie/xh take the method as a bare word. matched case sensitive, or a url
-  # path ending in /post reads as one.
-  grep -qE '(^|[^a-z0-9_-])(http|xh)[[:space:]]+([^;|&]*[[:space:]])?(POST|PUT|PATCH|DELETE)([[:space:]]|$)' <<<"$out" &&
+  grep -qE "$httpie" <<<"$out" &&
     block "an http write (POST/PUT/PATCH/DELETE or a body). reading a url is fine, writing to one is not."
+  asks=""
 fi
 
-# other machines are off limits entirely, not just for writes: what runs on a
-# remote host is invisible to every hook, gate and log in this setup, and prod
-# is exactly what sits on the other end. so remote shells and file transfers
-# are blocked as commands: ssh, scp, sftp, mosh, and the ftp family. rsync
-# only when a target names a host (host:path, user@host:path, rsync://).
-# local stays open, a vm or container on loopback is dev like any other; a
-# project names real exceptions in .claude/ssh-hosts (see projhosts above).
-#
-# matched on the message-blanked copy, a commit message may talk about ssh.
-# ssh-keygen/ssh-add/ssh-agent dont match, the word ends before the dash.
 sshok="$localhosts"
 extra="$(projhosts ssh-hosts)"
 [ -n "$extra" ] && sshok="$sshok|$extra"
-remoteShell() {
-  local low
-  low="$(tr '[:upper:]' '[:lower:]' <<<"$out")"
-  grep -qE '(^|[^a-z0-9_-])(ssh|scp|sftp|mosh|autossh|ftp|lftp|ncftp|tnftp)[[:space:]]' <<<"$low" ||
-    grep -qE '(^|[^a-z0-9_-])rsync[[:space:]][^;|&]*([[:space:]][a-z0-9._@-]+:|rsync://)' <<<"$low" ||
-    return 1
-  ! grep -qE "(^|[[:space:]\"'=@])(${sshok})([:[:space:]\"']|$)" <<<"$low"
+remote() {
+  block "a remote shell or transfer (ssh/scp/rsync/ftp) $1. other machines are off limits, the user lists exceptions in .claude/ssh-hosts."
 }
-remoteShell &&
-  block "a remote shell or transfer (ssh/scp/rsync/ftp). other machines are off limits, the user lists exceptions in .claude/ssh-hosts."
+# leaves $i on the first operand. -F and HostName/ProxyCommand redirect a listed name
+sshopts() { # $1 option letters that take a value
+  local o c v k j
+  while [ "$i" -lt "${#t[@]}" ]; do
+    o="${t[i]}"
+    case "$o" in
+      --) i=$((i + 1)) && return 0 ;;
+      --*) i=$((i + 1)) && continue ;;
+      -?*) ;;
+      *) return 0 ;;
+    esac
+    for ((k = 1; k < ${#o}; k++)); do
+      c="${o:k:1}"
+      [[ "$1" == *"$c"* ]] || continue
+      v="${o:k+1}"
+      [ -z "$v" ] && i=$((i + 1)) && v="${t[i]-}"
+      case "$c" in
+        F) remote "with -F, a config file can send a listed name anywhere" ;;
+        J) IFS=, read -ra j <<<"$v" && for v in "${j[@]}"; do listed "$sshok" "$v" || remote "via jump host $v"; done ;;
+        o)
+          case "$(tr '[:upper:]' '[:lower:]' <<<"$v")" in
+            proxyjump=*) IFS=, read -ra j <<<"${v#*=}" && for v in "${j[@]}"; do listed "$sshok" "$v" || remote "via jump host $v"; done ;;
+            hostname* | proxycommand* | proxyjump* | include* | localcommand* | permitlocalcommand*)
+              remote "with -o $v, it can send a listed name anywhere" ;;
+          esac
+          ;;
+      esac
+      break
+    done
+    i=$((i + 1))
+  done
+}
+# the tool as last word is no call (man page), except behind xargs. after the
+# host only the head of the remote command counts
+remoteCheck() {
+  local tool
+  i=0
+  while [ "$i" -lt "${#t[@]}" ]; do
+    tool="$(tr '[:upper:]' '[:lower:]' <<<"${t[i]##*/}")"
+    case "$tool" in
+      ssh | autossh | mosh | sftp | scp | rsync | ftp | lftp | ncftp | tnftp) ;;
+      *) i=$((i + 1)) && continue ;;
+    esac
+    if [ $((i + 1)) -ge "${#t[@]}" ]; then
+      [[ " ${t[*]} " == *" xargs "* || " ${t[*]} " == *" parallel "* ]] && remote "with hosts from stdin"
+      return 0
+    fi
+    i=$((i + 1))
+    case "$tool" in
+      ssh | autossh | mosh | sftp)
+        case "$tool" in
+          ssh) sshopts BbcDEeFIiJLlmOoPpQRSWw ;;
+          autossh) sshopts BbcDEeFIiJLlMmOoPpQRSWw ;;
+          mosh) sshopts p ;;
+          sftp) sshopts BbcDFiJloPRSX ;;
+        esac
+        [ "$i" -lt "${#t[@]}" ] || remote "without a readable target"
+        listed "$sshok" "${t[i]}" || remote "to ${t[i]}"
+        [ "$tool" = sftp ] && return 0
+        i=$((i + 1))
+        while [[ "${t[i]-}" =~ ^(sudo|env|exec|command|nohup|--)$ ]]; do i=$((i + 1)); done
+        [[ "$(tr '[:upper:]' '[:lower:]' <<<"${t[i]-}")" =~ ^(.*/)?(ssh|autossh|mosh|sftp|scp|rsync|ftp|lftp|ncftp|tnftp)$ ]] || return 0
+        ;;
+      scp | rsync)
+        [ "$tool" = scp ] && sshopts cFiJloPSX
+        for ((; i < ${#t[@]}; i++)); do
+          if [[ "${t[i]##*/}" == ssh || "${t[i]}" == *=ssh ]]; then
+            i=$((i + 1)) && sshopts BbcDEeFIiJLlmOoPpQRSWw
+          fi
+          [[ "${t[i]-}" == -* ]] && continue
+          [[ "${t[i]-}" == *://* || "${t[i]-}" =~ ^[^/]+: ]] || continue
+          listed "$sshok" "${t[i]}" || remote "to ${t[i]}"
+        done
+        return 0
+        ;;
+      *)
+        for ((; i < ${#t[@]}; i++)); do
+          [[ "${t[i]}" == -* || "${t[i]}" =~ ^[0-9]+$ ]] && continue
+          listed "$sshok" "${t[i]}" || remote "to ${t[i]}"
+        done
+        return 0
+        ;;
+    esac
+  done
+}
+while IFS= read -r line; do
+  read -ra t <<<"$line"
+  remoteCheck
+done <<<"$(segments "${nomsg//[\'\"]/}")"
 
 hasO '(^|[^a-z0-9_-])(npm|pnpm|yarn|bun|deno|cargo|uv|poetry|flit|maturin|hatch)[[:space:]]+publish' &&
   block "publishing a package. what leaves this machine is the user's call."
 hasO '(^|[^a-z0-9_-])((gem|helm|oras|ko|cachix|attic)[[:space:]]+push|twine[[:space:]]+upload|goreleaser[[:space:]]+release|mix[[:space:]]+hex\.publish)' &&
   block "publishing a package. what leaves this machine is the user's call."
-# covers `docker buildx build --push` along with the plain push
 hasO '(^|[^a-z0-9_-])(docker|podman|nerdctl|buildah)[[:space:]]+([^;|&]*[[:space:]])?(--)?push([[:space:]=]|$|[;|&])' &&
   block "pushing an image to a registry. what leaves this machine is the user's call."
 hasO 'nix[[:space:]]+copy[[:space:]][^;|&]*--to' &&
@@ -311,10 +277,22 @@ hasO '(^|[^a-z0-9_/.-])(sendmail|msmtp|mailx|swaks|mutt|neomutt)[[:space:]]' &&
   block "sending mail. writing the draft to a file is fine, sending it is the user's."
 hasO '(^|[^a-z0-9_/.-])mail[[:space:]]+[^;|&]*-s[[:space:]]' &&
   block "sending mail. writing the draft to a file is fine, sending it is the user's."
-# the applescript route to Mail and Messages, which no other rule here sees
 hasO 'osascript[^;|&]*(Mail|Messages)[^;|&]*[[:space:]]send([[:space:]]|$)' &&
   block "sending mail or a message via applescript. that is the user's to send."
 hasO "${gitpre}send-email" &&
   block "git send-email. patches leave this machine through the user, not you."
 
+# these files widen what the guard lets through, so only reading them is open
+while IFS= read -r line; do
+  grep -qE '\.claude/(ssh-hosts|outbound-hosts|settings(\.local)?\.json)' <<<"$line" || continue
+  [[ "$line" != *">"* ]] &&
+    grep -qE '^[[:space:]]*(cat|head|tail|less|grep|rg|wc|jq|ls|stat|diff|git[[:space:]]+(diff|log|show|blame|status))([[:space:]]|$)' <<<"$line" &&
+    continue
+  block "writing .claude/ssh-hosts, outbound-hosts or project settings. the user maintains those."
+done <<<"$(segments "${nomsg//[\'\"]/}")"
+
+if [ -n "$asks" ]; then
+  jq -n --arg r "reaches$asks. a listed host still needs the user's ok for every call." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $r}}'
+fi
 exit 0

@@ -17,7 +17,8 @@ Three lines, everything else in this section is detail:
   what sits on the other end. Local targets stay open: localhost, loopback, a
   VM or container port on 127.x, a `.test` host. A project that genuinely
   works against a machine lists it in `.claude/ssh-hosts` at its root, one
-  host per line; I put hosts there, you don't.
+  host per line; I put hosts there, you don't. A listed host still asks every
+  time, no allow rule for ssh/scp/rsync.
 - **Deploys only when I ask.** `darwin-rebuild`, `mise run deploy`,
   `terraform`/`tofu apply`, `kubectl apply`, anything comparable. A repo that
   whitelists a deploy in its permissions only skips the prompt, it does not
@@ -61,9 +62,14 @@ The detail:
   comprehension gap.
 - No new dependencies without asking. And no hand-rolling what an existing
   dependency already does.
-- Docs and ADRs don't need asking for. The brake is duplication, not volume:
-  extend the doc that already covers the topic instead of putting a second one
-  beside it.
+- Docs and ADRs don't need asking for, but keep them lean: the shortest thing
+  that answers the question, no prose around it. Extend the doc that already
+  covers the topic instead of putting a second one beside it. Same cap as
+  comments, see `rules/comments.md`.
+- Whatever I am supposed to remember goes into the navi cheats
+  (`home/cli/core/cheats/` in nix-config, Ctrl-/ in the shell): a new
+  shortcut, a command worth keeping, a workflow, a convention. In the same
+  change, not only in the reply. A reply is gone tomorrow, the cheat stays.
 - Skills supply workflows and criteria, never conventions. Where a skill's
   git, commit, doc or reporting habits differ from this file, this file wins.
 - Never invent technical details: versions, env vars, API endpoints, config

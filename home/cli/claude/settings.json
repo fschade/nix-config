@@ -44,11 +44,10 @@
         ]
       },
       {
-        "matcher": "Read",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/read-guard.sh"
+            "command": "~/.claude/hooks/cc-safety-net hook --coding-cli"
           }
         ]
       }
@@ -117,6 +116,14 @@
       "Bash(mise tasks *)",
       "Bash(mise ls)"
     ],
+    "ask": [
+      "Bash(ssh *)",
+      "Bash(autossh *)",
+      "Bash(mosh *)",
+      "Bash(scp *)",
+      "Bash(sftp *)",
+      "Bash(rsync *)"
+    ],
     "deny": [
       "Bash(git push)",
       "Bash(git push *)",
@@ -134,19 +141,11 @@
       "Edit(~/.claude/agents/**)",
       "Edit(~/.claude/commands/**)",
       "Edit(~/.claude/plugins/**)",
-      "Read(~/.ssh/**)",
-      "Read(~/.gnupg/**)",
-      "Read(~/.aws/**)",
-      "Read(~/.kube/**)",
-      "Read(~/.config/gh/**)",
-      "Read(~/.config/sops/**)",
-      "Read(~/.docker/config.json)",
-      "Read(~/.git-credentials)",
-      "Read(~/.npmrc)",
-      "Read(~/Library/Keychains/**)",
-      "Read(.env)",
-      "Read(.env.local)",
-      "Read(.env.*.local)"
-    ]
+      "Edit(**/.claude/ssh-hosts)",
+      "Edit(**/.claude/outbound-hosts)",
+      "Edit(**/.claude/settings.json)",
+      "Edit(**/.claude/settings.local.json)"
+    ],
+    "disableBypassPermissionsMode": "disable"
   }
 }

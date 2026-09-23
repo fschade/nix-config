@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "safety": {
+    "level": "standard",
+    "overrides": {
+      "paranoid_rm": true
+    }
+  },
+  "secret_protection": {
+    "deny_paths": [
+      "~/.gnupg",
+      "~/.config/sops",
+      "~/.kube",
+      "~/Library/Keychains"
+    ],
+    "allow_paths": [
+      ".env.dist"
+    ]
+  }
+}

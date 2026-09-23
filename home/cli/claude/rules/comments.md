@@ -1,54 +1,57 @@
 # Code comments
 
-The voice: short, plain, functional. A note for whoever touches this line next,
-not documentation. In-flow imperfection is fine, a terse fragment or a dropped
-article, since the job is to inform and not to polish; it only has to stay clear
-to a reader who has never met you, which matters most once the repo is public.
-What it must never be is corporate or AI boilerplate: padded, hedged, or written
-to impress. Lowercase start, no trailing period on fragments. Comment only where
-the code can't speak for itself.
+The default is no comment. Most lines, most functions, most blocks get none: the
+code says what it does, and a comment that adds nothing is a line to maintain
+and a line that will rot. Comment only where the code can't speak for itself.
 
-No long parenthetical rationale. No comma chains either. Two statements are two
-sentences. Where a comma joins them a period does it better.
+## Length
 
-- Why, not what. The code already says what it does; the comment says why it
-  has to be this way, which trap it avoids, or which obvious alternative
-  doesn't work. Name the command to run or the file that holds the other half
-  when that is the answer.
-- Describe the state, don't tell a story. Say what is true now, in one go.
-  No "we first tried X, then Y", no build-up, no narrative arc. Factual and to
-  the point.
-- No history the code no longer has. Even an accurate comment about a removed
-  implementation, an old flag, a previous approach or a past bug is dead
-  weight: delete it together with the thing it described. Complements the
-  comment-rot rule in hygiene.md, which covers comments that went stale.
-- No restatement. If the comment repeats the line under it, drop the comment.
+One line, or nothing. That is the cap, not a target.
 
-  ```python
-  # bad, says what the line says
-  # retry three times
-  for attempt in range(3):
+Two lines only when one genuinely cannot hold the trap. Three is a smell, and a
+paragraph is never right: if it takes that much prose, the thing belongs in a
+doc, a cheat, or a better name. The one exception is a file header, where a few
+lines may carry what the file is and how it is called.
 
-  # good, says why the number is three
-  # the upstream rate limit resets after 30s, three attempts with the
-  # backoff below covers one window without hammering it.
-  for attempt in range(3):
-  ```
+```nix
+# bad
+# nix-homebrew pins brew to a hard tag and lags behind releases, so brew
+# would read tap files it does not understand yet: a cask using a stanza
+# from a newer brew fails as "definition is invalid". `mise run update`
+# only re-locks this pin, moving it means editing the tag below in the same
+# commit as the taps.
 
-- No AI boilerplate. Skip "This function is responsible for ...", "Note that
-  it is important to ...", hedging, and complete-sentence polish.
+# good
+# never set the tag below nix-homebrews own brew version, bin/brew comes from there
+```
 
-  ```bash
-  # bad
-  # Note that this guard is responsible for validating the command string prior
-  # to execution. It is important to ensure that wrapped invocations are also
-  # matched by the pattern.
+No section dividers (`# networking tools` over a list). No decoration.
 
-  # good
-  # rm is matched as a word, not anchored on a separator: an anchor misses
-  # everything with something in front, sudo rm, sh -c "rm ...", xargs,
-  # find -exec
-  ```
+## Voice
 
-- One block per unit, not one per line. A short paragraph at the head of a
-  function, derivation or rule block beats a comment on every line inside it.
+Short, plain, functional. A note for whoever touches this line next, not
+documentation. A terse fragment or a dropped article is fine, the job is to
+inform, not to polish; it only has to stay clear to a reader who has never met
+you. Lowercase start, no trailing period on fragments. Never corporate or AI
+boilerplate: no "This function is responsible for ...", no "Note that it is
+important to ...", no hedging.
+
+## What earns a line
+
+- **Why, not what.** Which trap it avoids, which obvious alternative doesn't
+  work, or the command to run and the file holding the other half.
+- **State, not story.** What is true now. No "we first tried X, then Y".
+- **No history the code no longer has.** A comment about a removed
+  implementation, an old flag or a past bug is dead weight, delete it with the
+  thing it described. `hygiene.md` covers comments that merely went stale.
+- **No restatement.** If it repeats the line under it, drop it.
+
+```python
+# bad, says what the line says
+# retry three times
+for attempt in range(3):
+
+# good, says why the number is three
+# the rate limit resets after 30s, three attempts cover one window
+for attempt in range(3):
+```

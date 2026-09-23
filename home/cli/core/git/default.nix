@@ -3,14 +3,18 @@
   pkgs,
   vars,
   ...
-}: {
-  # committed: linter for conventional commits, lefthook call it per repo.
-  # difftastic: diff that understand syntax, via `git dt` (difftool). delta
-  # stays the default pager for `git diff`/`log`/`show`.
-  home.packages = [pkgs.committed pkgs.difftastic];
+}: let
+  gitBranches = pkgs.writeShellApplication {
+    name = "git-branches";
+    runtimeInputs = [pkgs.git];
+    text = builtins.readFile ../../../../custom/scripts/common/git-branches.sh;
+  };
+in {
+  home.packages = [pkgs.committed pkgs.difftastic gitBranches];
 
   programs.gh = {
     enable = true;
+    extensions = [pkgs.gh-poi];
     settings = {
       git_protocol = "ssh";
       prompt = "enabled";
@@ -34,14 +38,11 @@
 
       commit.template = "${config.xdg.configHome}/git/commit-message";
 
-      # `git difftool` (and `git dt`) open changes in difftastic instead of the
-      # pager. regular `git diff` still use delta.
       diff.tool = "difftastic";
       difftool.difftastic.cmd = ''difft "$LOCAL" "$REMOTE"'';
       difftool.prompt = false;
       alias.dt = "difftool";
       init.defaultBranch = "main";
-      push.autoSetupRemote = true;
       pull.rebase = true;
       log.date = "iso";
 
