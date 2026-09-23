@@ -3,15 +3,12 @@
   vars,
   ...
 }: let
-  # one source of truth: screencapture.location below and the postactivation
-  # script (which makes the folder) both take this.
   screenshotsDir = "/Users/${vars.user.name}/Pictures/Screenshots";
 in {
   system = {
     startup.chime = false;
 
     defaults = {
-      # ask password right after screensaver or sleep
       screensaver = {
         askForPassword = true;
         askForPasswordDelay = 0;
@@ -49,7 +46,6 @@ in {
         show-recents = false; # no recent apps section
         mru-spaces = false; # dont reorder spaces by use, for aerospace
 
-        # hot corners off (1 = no action), no accident with mission control
         wvous-tl-corner = 1;
         wvous-tr-corner = 1;
         wvous-bl-corner = 1;
@@ -89,12 +85,10 @@ in {
           TALLogoutSavesState = false; # no reopen apps after restart, clean state
         };
         "com.apple.desktopservices" = {
-          # no .DS_Store on network or usb volumes, keeps repos clean
           DSDontWriteNetworkStores = true;
           DSDontWriteUSBStores = true;
         };
         "com.raycast.macos" = {
-          # enable 'cmd + space' for raycast search
           raycastGlobalHotkey = "Command-49";
         };
       };
@@ -121,8 +115,6 @@ in {
       };
     };
 
-    # the user-side leftovers, everything system.defaults cant express. runs as
-    # root, both halves step down to the user themselves.
     activationScripts.postActivation.text = ''
       # spotlight off so raycast gets cmd+space. not a CustomUserPreferences entry:
       # nix-darwin writes the whole AppleSymbolicHotKeys dict, that puts every

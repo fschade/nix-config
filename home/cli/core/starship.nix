@@ -4,8 +4,6 @@
     enableBashIntegration = true;
     enableZshIntegration = true;
 
-    # https://starship.rs/config/  catppuccin/nix sets `palette` and ships the
-    # names used below, `mauve` / `peach` / `sky` are not starship builtins
     settings = {
       "$schema" = "https://starship.rs/config-schema.json";
       add_newline = true;
@@ -42,15 +40,12 @@
       };
       git_status.style = "bold peach";
 
-      # know when you are inside a `nix develop` / nix-shell
       nix_shell = {
         symbol = " ";
         style = "bold sky";
         format = "via [$symbol$name]($style) ";
       };
 
-      # kubernetes context, red on purpose so you never nuke the wrong cluster.
-      # only shown in k8s/infra dirs.
       kubernetes = {
         disabled = false;
         symbol = "󱃾 ";

@@ -3,10 +3,6 @@
 _subdirectory: template
 _min_copier_version: "9"
 
-# copier chmods every generated file to the mode of its source, and the source
-# is the nix store (444). without this `go mod tidy` and the gofmt hook die with
-# permission denied. tasks are an unsafe feature, the trust entry that lets them
-# run without `--trust` is in home/cli/dev.nix.
 _tasks:
   - "chmod -R u+w ."
 

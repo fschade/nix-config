@@ -29,20 +29,15 @@ nix run home-manager/master -- switch -b backup --flake .#$USER@$HOST
 mise run deploy [target]   # build + switch (default: this machine)
 mise run rollback          # macOS: previous generation. linux: lists them, you pick
 mise run gc [30d]          # drop generations older than that, then collect the store
-mise run check             # fmt check + lint + swift parse + secret gates + the claude hook tests
+mise run check             # fmt + lint + swift parse + secret gates + claude hook tests
 mise run fmt               # format nix files
 mise run apps              # list the apps/CLIs you declared (nix packages + casks)
 mise run update            # bump every flake input (brew taps included), then deploy
 ```
 
-CI runs `check` too, plus a commit-message lint and a per-system build of every
-host config. Commit subjects are lowercase by convention only: `committed` has
-no setting for it, `subject_capitalized = false` just turns its capitalization
-check off.
-
-`deploy` routes by target: `user@host` goes to home-manager, a bare name to
-nix-darwin.
-Deploy any config explicitly, e.g. `mise run deploy fschade@darwin-default`.
+`deploy` routes by target: `user@host` to home-manager, a bare name to
+nix-darwin, e.g. `mise run deploy fschade@darwin-default`. CI runs `check` plus a
+commit-message lint and a per-system build of every host config.
 
 ## Dev
 
@@ -50,7 +45,7 @@ Deploy any config explicitly, e.g. `mise run deploy fschade@darwin-default`.
 direnv allow   # or: nix develop
 ```
 
-Loads the toolchain (mise + gate tools) and installs git hooks. CI runs the same shell.
+Loads the toolchain and installs git hooks. CI runs the same shell.
 
 ## Thanks
 

@@ -5,10 +5,6 @@
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
 
-    # make zsh line editor handle the keys you expect in any xterm terminal
-    # (Ghostty, iTerm, Terminal.app, most linux terminals). mainly fixes
-    # forward-Delete inserting a stray "~": it sends \e[3~ which zsh didnt
-    # bind, so the trailing ~ leaked as literal char.
     initContent = lib.mkMerge [
       ''
         bindkey "^[[3~"   delete-char        # Delete (forward), fixes the stray ~
@@ -21,7 +17,6 @@
         bindkey "^[[3;5~" kill-word          # Ctrl+Delete, delete next word
         bindkey "^[^?"    backward-kill-word # Alt+Backspace, delete prev word
       ''
-      # must run AFTER navi/atuin integrations define their widgets, so mkAfter.
       (lib.mkAfter ''
         # navi snippet picker on Ctrl-/ (sends ^_), stays free inside a
         # multiplexer unlike Ctrl-G. also via the `cs` alias.
@@ -32,7 +27,6 @@
       '')
     ];
 
-    # Ctrl-R / up-history is done by atuin, this is the local fallback.
     history = {
       size = 50000;
       save = 50000;

@@ -5,8 +5,6 @@
     historyControl = ["ignoredups" "ignorespace"];
   };
 
-  # aliases for bash + zsh, on every machine.
-  # eza is in core, icons need the terminal nerd font.
   home.shellAliases = {
     ls = "eza --group-directories-first --icons";
     ll = "eza -l --group-directories-first --icons --git";

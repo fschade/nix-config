@@ -1,5 +1,4 @@
 {inputs, ...}: {
-  # https://github.com/catppuccin/nix - themes the CLI tools (bat, starship, ...)
   imports = [
     inputs.catppuccin.homeModules.catppuccin
   ];

@@ -10,5 +10,6 @@
     ./keyboard.nix
     ./fonts.nix
     ./users.nix
+    ./claude.nix
   ];
 }

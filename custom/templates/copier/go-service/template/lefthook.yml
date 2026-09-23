@@ -7,7 +7,6 @@ pre-commit:
     lint:
       run: mise run lint
 
-# conventional-commit linting. committed auto-discovers ./committed.toml
 commit-msg:
   commands:
     committed:

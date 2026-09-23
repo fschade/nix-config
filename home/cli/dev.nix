@@ -7,7 +7,6 @@
 }: {
   home.packages = with pkgs;
     [
-      # dev CLIs
       lazydocker # docker terminal UI
       dive # explore docker image layers & size
       tokei # count lines of code
@@ -28,35 +27,27 @@
       lefthook # git hooks manager (any repo)
       shellcheck # shell linter (used by `mise run check`; the devShell has it too)
 
-      # nix authoring helpers
       nix-init # generate a nix derivation from a url
       nix-melt # TUI flake.lock viewer
       deadnix # find dead nix code (used by `mise run check`)
       statix # nix linter (used by `mise run check`)
 
-      # network / debugging
       mitmproxy # http/https proxy
       wireshark # network analyzer
 
-      # media
       ffmpeg
       viu # terminal image viewer
       imagemagick
       graphviz
 
-      # misc
       caddy # webserver with automatic HTTPS
       cowsay
       gum # styled shell UIs (prompts, spinners, status) for custom/scripts/*
 
-      # local HTTPS dev domains with auto certs (from the localias flake input)
       inputs.localias.packages.${pkgs.stdenv.hostPlatform.system}.default
 
-      # project scaffolding with template updates (`copier copy` / `copier update`)
       copier
     ]
-    # macOS container runtime is orbstack (cask, modules/darwin/apps.nix).
-    # docker-client + compose are the CLIs, talking to the orbstack context.
     ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
       docker-client
       docker-compose
@@ -64,31 +55,18 @@
 
   xdg.configFile = lib.mkMerge [
     {
-      # copier only runs a template's `_tasks` for templates you trust, and the
-      # go-service one needs its task to undo the read-only store modes. listing
-      # the prefix here keeps `copier copy` working as documented, the
-      # alternative would be remembering `--trust` on every run.
       "copier/settings.yml".text = ''
         trust:
           - ${config.xdg.dataHome}/copier/templates/
       '';
     }
     (lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
-      # supply chain: pnpm waits 7 days (value in minutes) before installing a new
-      # release, so freshly compromised packages never reach us. the global config
-      # covers every project pnpm.
-      # pnpm 11 dropped the npmrc-style global file, `pnpm config get globalconfig`
-      # prints the yaml path it reads today.
-      # idea via trailofbits/claude-code-config, thanks.
       "pnpm/config.yaml".text = "minimumReleaseAge: 10080\n";
     })
   ];
 
-  # templates at a stable HOME path, so the command dont depend on where this
-  # repo lives: `copier copy ~/.local/share/copier/templates/go-service ./my-project`
   xdg.dataFile."copier/templates".source = ../../custom/templates/copier;
 
-  # git-trim (package above) needs to know the long-lived branches
   programs.git.settings.trim.bases = "develop,master,main";
 
   home.shellAliases = {
