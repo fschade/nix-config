@@ -1,0 +1,19 @@
+% power, macos
+
+# Configured power settings
+pmset -g custom
+
+# What blocks sleep right now
+pmset -g assertions
+
+# Sleep and wake history
+pmset -g log | grep -E "Display is turned|Wake from|DarkWake|Entering Sleep"
+
+# Wakes caused by a USB device, per day
+pmset -g log | grep USB2_wake | awk '{print $1}' | sort | uniq -c
+
+# Which HID device keeps waking the display, sampled live
+for i in $(seq 1 40); do pmset -g assertions | grep iohideventsystem.queue.tickle; sleep 3; done
+
+# Keep the mac awake, display included
+caffeinate -di -t <seconds>

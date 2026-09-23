@@ -1,0 +1,10 @@
+% brew, nix, macos
+
+# Which brew halves are linked, they must be the same version
+ls -la /opt/homebrew/bin/brew /opt/homebrew/Library/Homebrew
+
+# Force the ruby path, `brew --version` alone hides a broken half
+brew ruby -e 'puts 1'
+
+# What the brew-src pin resolves to
+nix eval --impure --raw --expr '(builtins.getFlake (toString ./.)).inputs.brew-src.outPath'

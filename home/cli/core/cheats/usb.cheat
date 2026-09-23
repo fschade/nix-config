@@ -1,0 +1,33 @@
+% usb
+
+# Live device tree, follows hot-plug
+usbtree
+
+# Print the tree once, no TUI
+usbtree --dump
+
+% usb, macos
+
+# Tree with link speed and power per device
+system_profiler SPUSBHostDataType
+
+# Names and negotiated speed only
+system_profiler SPUSBHostDataType | grep -E "^ *[A-Za-z0-9].*:$|Link Speed:"
+
+# Speed per device. 1=12M 2=480M 3=5G 4=10G
+ioreg -p IOUSB -w0 -l | grep -E '\+-o |"Device Speed"'
+
+# Which port a device sits on
+ioreg -p IOUSB -w0 | grep -i <name>
+
+# Attach and detach events with the reason
+log show --last 1d --predicate 'subsystem == "com.apple.usb"' --style compact | grep -E "enumerated|terminateDevice"
+
+# A hub chain dropping off the bus
+log show --last 1d --predicate 'subsystem == "com.apple.usb"' --style compact | grep "connection lost"
+
+# Decode an IOReturn code, e.g. 0xe00002d8
+grep -i <code> /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/IOKit.framework/Headers/IOReturn.h
+
+# Audio device enumerated but macOS does not offer it
+sudo killall coreaudiod

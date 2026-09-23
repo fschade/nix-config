@@ -1,6 +1,5 @@
 {pkgs, ...}: {
   home.packages = with pkgs; [
-    # core tools
     fastfetch
     neovim # also the EDITOR, see home.nix
     helix # `hx`: modal editor, LSP and tree-sitter builtin
@@ -8,20 +7,17 @@
     just # command runner like gnumake but simpler
     git-lfs # used by huggingface models
 
-    # system monitoring
     procs # modern ps
     btop
     witr # "why is this running": trace a process/port/container to its cause
+    usbtree # usb device tree with link speed (TUI)
 
-    # archives
     zip
     xz
     zstd
     unzipNLS
     p7zip
 
-    # text processing
-    # docs: https://github.com/learnbyexample/Command-line-text-processing
     gnugrep # GNU grep, gives `grep`/`egrep`/`fgrep`
     gawk # GNU awk, pattern scanning language
     gnutar
@@ -33,20 +29,17 @@
     yq-go # yaml processor https://github.com/mikefarah/yq
     jc # converts output of many cli tools to JSON, YAML
 
-    # file search & navigation
     fd # find files by name, faster than find
     findutils
     eza # modern ls
     (ripgrep.override {withPCRE2 = true;}) # search by content, better grep
     ripgrep-all # `rga`: ripgrep that also search PDFs, docx, sqlite, archives
 
-    # disk usage
     duf # better df
     dust # more intuitive du, in rust
     gdu # disk usage analyzer, like du
     ncdu # disk usage interactive TUI, like du
 
-    # networking tools
     mtr # network diagnostic (traceroute)
     gping # ping but with a graph (TUI)
     dnsutils # `dig` + `nslookup`
@@ -65,26 +58,20 @@
     tcpdump # network sniffer
     bandwhich # per-process network bandwidth (TUI)
 
-    # file transfer
     rsync
     croc # transfer files between computers, secure and easy
 
-    # security
     libargon2
     openssl
     sops # edit/decrypt secret files. use it with the IntelliJ sops plugin
     age # file encryption backend for sops
+    bitwarden-cli # `bw`: vault access from the shell, also what the raycast extension talks to
 
-    # nix tooling
     nix-output-monitor # `nom`: nix build with richer logs
     nix-tree # TUI derivation dependency graph
 
-    # docs / help. `cht.sh <cmd>` is a docs wiki for any tool, online, broader
-    # than tldr. `cht.sh <cmd>~<keyword>` searches inside one sheet. tldr
-    # (offline) is in cli.nix via programs.tealdeer.
     cht-sh
 
-    # misc
     file
     which
     tree

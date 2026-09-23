@@ -14,3 +14,11 @@ nix run nixpkgs#<pkg>
 
 # Search nixpkgs
 nix search nixpkgs <query>
+
+% nix, macos
+
+# After a macOS update: nix volume, daemon and the /etc takeover survived
+mount | grep ' on /nix ' && nix store info && readlink /etc/zshrc /etc/zprofile
+
+# After a macOS update: the helpers that need a permission grant are back up
+pgrep -f Karabiner-Core-Service && aerospace list-workspaces --focused && sketchybar --query bar >/dev/null && echo sketchybar ok

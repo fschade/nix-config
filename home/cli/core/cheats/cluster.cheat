@@ -23,3 +23,21 @@ kubectl port-forward svc/<service> <localport>:<remoteport>
 
 # Resource usage by pod
 kubectl top pods -A
+
+# homelab: one-screen cluster health
+task ops:status
+
+# homelab: alerts firing right now
+task ops:alerts
+
+# homelab: what fired lately and how often (prometheus keeps 10d)
+task ops:alerts:history -- <days>
+
+# homelab: logs from loki, also for pods that are already deleted
+task ops:logs -- <namespace> <pod_prefix> <hours>
+
+# homelab: backup cronjobs with schedule and last success
+task ops:backup:status
+
+# homelab: versions in the off-site bucket, delete markers included
+task ops:b2:versions -- <prefix>
