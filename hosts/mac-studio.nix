@@ -1,4 +1,8 @@
-{vars, ...}: let
+{
+  pkgs,
+  vars,
+  ...
+}: let
   hostname = "mac-studio";
 in {
   imports = [
@@ -23,17 +27,17 @@ in {
       ../home/gui/sketchybar
       ../home/gui/wallpaper.nix
     ];
+    home.packages = [pkgs.vikunja-desktop pkgs.vja];
   };
 
   homebrew = {
     casks = [
       "fujitsu-scansnap-home"
       "whatsapp"
-      "ticktick"
+      "home-assistant"
       "obs" # streaming, only this host has the cams and the rode gear
 
       "claude"
-      "claude-code@latest"
     ];
 
     masApps = {
@@ -42,7 +46,8 @@ in {
   };
 
   local.loginItems = [
-    "/Applications/TickTick.app"
+    "/Users/${vars.user.name}/Applications/Home Manager Apps/Vikunja Desktop.app"
+    "/Applications/Home Assistant.app"
     "/Applications/OBSBOT_Center.app" # no cask, install by hand (MANUAL.md)
   ];
 

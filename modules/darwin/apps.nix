@@ -42,7 +42,7 @@
 
       "element"
 
-      "tolaria" # markdown notes / knowledge base, oss, git-backed
+      "getoutline" # markdown knowledge base, desktop client for an outline server
 
       "bitwarden"
       "firefox"

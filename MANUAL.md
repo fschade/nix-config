@@ -171,6 +171,10 @@ desktop app: enter the server url on first start and log in. `vja` needs
 `[application]`. `api_url` must end in `/v2`, vja only speaks the v2 api
 (server >= 2.5). the first `vja ls` asks for the login and keeps the token.
 
+## home assistant and outline (one-time)
+both are clients only: enter the server url on first start and log in. home
+assistant (mac-studio) autostarts through its login item.
+
 ## mac app store apps (one-time, per apple account)
 `mas` only installs what the account owns. every `masApps` entry has to be
 "bought" once by hand in the App Store.
