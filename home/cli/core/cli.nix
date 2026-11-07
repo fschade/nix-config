@@ -69,7 +69,21 @@
     settings = {
       onboarding = false; # skip the first-run wizard, config comes from here
       keys.prefix = "ctrl+b";
-      theme.name = "catppuccin";
+      theme = {
+        name = "catppuccin";
+        custom = {
+          accent = "#f5c2e7";
+          active_row_bg = "#313244";
+          panel_bg = "reset";
+          sidebar_bg = "reset"; # pane cells always show the terminal background, herdr cannot paint them
+        };
+      };
+      ui = {
+        hide_tab_bar_when_single_tab = true;
+        pane_borders = "always"; # no padding option, a frame is the only inset
+        pane_scrollbars = false;
+        status_indicators = "symbols";
+      };
       update.version_check = false; # nix manage the binary, skip the update nag
     };
   };

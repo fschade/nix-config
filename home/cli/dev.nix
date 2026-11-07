@@ -22,6 +22,7 @@
       exercism # coding exercises
       git-trim # prune merged/gone tracking branches
       git-absorb # auto-fixup staged changes into the right prior commit
+      worktrunk # `wt`: worktrees by branch name (switch -c, list, remove, local merge)
       gh-dash # TUI dashboard for GitHub PRs/issues
       gitleaks # scan for secrets (any repo)
       lefthook # git hooks manager (any repo)
@@ -68,6 +69,15 @@
   xdg.dataFile."copier/templates".source = ../../custom/templates/copier;
 
   programs.git.settings.trim.bases = "develop,master,main";
+
+  # generated at build time instead of `wt config shell install` rewriting .zshrc. lets `wt switch` cd
+  programs.zsh.initContent = let
+    wtInit = pkgs.runCommand "wt-init.zsh" {} ''
+      HOME=$TMPDIR ${lib.getExe' pkgs.worktrunk "wt"} config shell init zsh >$out
+    '';
+  in ''
+    source ${wtInit}
+  '';
 
   home.shellAliases = {
     lzd = "lazydocker";

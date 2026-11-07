@@ -19,7 +19,7 @@
       ''
       (lib.mkAfter ''
         # navi snippet picker on Ctrl-/ (sends ^_), stays free inside a
-        # multiplexer unlike Ctrl-G. also via the `cs` alias.
+        # multiplexer unlike Ctrl-G. also via the `cs` and `?` aliases.
         bindkey -r "^g"            # drop navi default Ctrl-G binding
         bindkey "^_" _navi_widget  # Ctrl-/
         # `?` types a literal char, disable atuin `?`-at-empty-prompt AI.

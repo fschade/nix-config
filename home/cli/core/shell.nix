@@ -13,6 +13,7 @@
     ".." = "cd ..";
     "..." = "cd ../..";
     cs = "navi"; # cheatsheet, open navi snippet picker
+    "?" = "navi";
     docs = "cht.sh"; # docs/wiki for any command: `docs eza`, `docs tar extract`
   };
 }
