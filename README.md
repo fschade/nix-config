@@ -33,6 +33,9 @@ mise run check             # fmt + lint + swift parse + secret gates + claude ho
 mise run fmt               # format nix files
 mise run apps              # list the apps/CLIs you declared (nix packages + casks)
 mise run update            # bump every flake input (brew taps included), then deploy
+mise run claude-hooks-test # only the claude hook tests, check runs them too
+mise run claude-smoke      # probe the deployed claude config headless, costs a few tokens
+mise run web-app build     # wrap a site as a macOS app, see tools/web-app/README.md
 ```
 
 `deploy` routes by target: `user@host` to home-manager, a bare name to

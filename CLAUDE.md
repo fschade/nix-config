@@ -28,6 +28,9 @@ when it needs siblings: several modules that read better split
 
 - User and host are never hardcoded. `vars` comes through `specialArgs` from
   `flake.nix`: `vars.user.name`, `.fullName`, `.email`.
+- Non-Nix text longer than a few lines (scripts, config, templates) is a real
+  file under `custom/`, pulled in with `.source` or `builtins.readFile`, so it
+  gets highlighting, shellcheck and clean diffs. One-liners may stay inline.
 - Platform gates stay in nix (`lib.mkIf pkgs.stdenv.hostPlatform.isDarwin`). The
   `common` / `darwin` split under `custom/scripts/` only documents intent.
 - `scripts/*.sh`: `#!/usr/bin/env bash`, `set -euo pipefail`, and `cd` to the

@@ -7,6 +7,12 @@ nix comes back on its own. permission grants do not: check karabiner, aerospace
 and background items below. check one-liners are in the navi cheats under
 `nix, macos`.
 
+## rosetta (one-time, per apple silicon mac)
+mysides, which sets the finder favorites in the deploy, ships x86_64 only. without
+rosetta the deploy prints `Bad CPU type` and leaves the favorites as they are:
+
+    softwareupdate --install-rosetta --agree-to-license
+
 ## gatekeeper quarantine (one-time cleanup)
 an unmanaged `LSQuarantine` key nix-darwin will never delete:
 
@@ -29,10 +35,127 @@ move-a-space arrows (79-82). current state:
 macshot takes ⇧⌘T globally and its hotkeys live in the app, not defaults. move it
 in macshot > settings > shortcuts.
 
-## serena mcp (per-project opt-in)
-`serena` is on PATH, opt in per repo:
+## claude code from nixpkgs (one-time, before the deploy that drops the cask)
+the `claude-code@latest` cask zaps `~/.claude.json*` and brew cleanup runs with
+`zap`. uninstall it plainly first, then deploy:
 
-    claude mcp add serena -- serena start-mcp-server --context claude-code --project-from-cwd
+    brew uninstall --cask claude-code@latest
+
+a mise-installed claude-code puts a shim ahead of the nix one on `PATH`:
+
+    mise uninstall --all claude-code
+
+after the deploy: start `claude` once so it rewrites
+`~/.claude/chrome/chrome-native-host` to the store path, then run
+`mise run claude-smoke`.
+
+## jetbrains mcp server (user scope, one-time)
+managed settings only take https servers, the ide's local one stays in
+`~/.claude.json`:
+
+    claude mcp add -s user -t http idea http://127.0.0.1:64342/stream
+
+## claude code sandbox
+after the first deploy with it: `mise run claude-smoke`, then `/sandbox` in a
+session, its Config tab lists what applies.
+
+linux: try one host first. `failIfUnavailable` keeps claude from starting where
+bubblewrap or user namespaces are restricted, an lxc container for one.
+
+what fails in the agent's shell, by design, run it yourself with `!`: deploys,
+docker, the nix daemon (`nix build`, `nix flake metadata`), git over ssh remotes,
+anything reading a real `.env`.
+
+check `.claude/ssh-hosts` in a project with a real host, after the yes at session
+start: `/sandbox` lists its patterns, a plain `ssh host true` brings a prompt titled
+"Bash command (unsandboxed)" and works, the same to an unlisted host fails,
+`ssh host -o ProxyCommand=x true` is denied.
+
+linux: the backstop check in `home/cli/claude/hooks/README.md` shows whether the
+launcher's `disableAllHooks: false` beats a project's `true`.
+
+a tracked `.pem` or `.key` is unreadable in the agent's shell. if
+`claude-smoke` reports git failing beside one, take the name out of `denyRead` in
+`home/cli/claude/settings.json`.
+
+an agent that needs a key for tests (openrouter, say) gets one of its own with a
+spending limit, never the main key. put it in `.env.agent` and load only that
+with `dotenv_if_exists .env.agent` in the project's `.envrc`; a plain `dotenv`
+would hand every secret in `.env` to the session. start claude from a shell
+where direnv ran, the sandbox passes the env through.
+
+## ssh key per project (one-time, per server)
+own key, own non-root user:
+
+    ssh-keygen -t ed25519 -f ~/.ssh/app-prod -C app-prod
+
+in that user's `authorized_keys` on the server:
+
+    restrict,from="203.0.113.10",command="/usr/local/bin/deploy-app" ssh-ed25519 AAAA... app-prod
+
+- `restrict` drops forwarding, pty and `~/.ssh/rc`, add `pty` back if a shell is
+  the job
+- `from=` only where the client ip is fixed
+- `command=` runs that, whatever the client asked. the requested line is in
+  `$SSH_ORIGINAL_COMMAND`, so a small script can allow-list. without `command=`
+  the key is a full shell as that user. rsync only: rsync's `rrsync` wrapper, not
+  every distro ships it
+
+which key ssh takes for this host, in `home/cli/core/ssh.nix`:
+
+    settings."prod.example.com" = {
+      IdentityFile = "~/.ssh/app-prod";
+      IdentitiesOnly = "yes";
+    };
+
+that the agent may reach it, one line in the project's `.claude/ssh-hosts`:
+
+    prod.example.com
+
+## ssh agent confirmation (per project that reaches production)
+a dialog for every use of the key, in an agent holding only that key. macOS ships
+no `ssh-askpass`, so `~/.ssh/askpass-confirm`, `chmod +x`:
+
+    #!/bin/sh
+    exec osascript -e 'on run argv' -e 'display dialog (item 1 of argv) buttons {"Deny", "Allow"} default button "Deny" cancel button "Deny"' -e 'end run' "$1" >/dev/null
+
+start the agent, gone after a reboot. the host has to be in `known_hosts`, `-h`
+looks its key up there:
+
+    SSH_ASKPASS=~/.ssh/askpass-confirm SSH_ASKPASS_REQUIRE=force DISPLAY=:0 ssh-agent -a ~/.ssh/agent-prod.sock
+    SSH_AUTH_SOCK=~/.ssh/agent-prod.sock ssh-add -c -h deploy@prod.example.com ~/.ssh/app-prod
+
+the host entry points at the agent and at the public key, a private key there lets
+ssh skip the agent. the key needs a passphrase that is not in the keychain, or
+`ssh -i` skips the dialog:
+
+    settings."prod.example.com" = {
+      IdentityAgent = "~/.ssh/agent-prod.sock";
+      IdentityFile = "~/.ssh/app-prod.pub";
+      IdentitiesOnly = "yes";
+    };
+
+check: an `ssh` to the host has to bring up the dialog, Deny has to fail the login.
+
+## claude in chrome: own profile (one-time, per machine)
+no hook sees which page a tab shows, so the agent gets nothing to act as. new chrome
+profile, logged in only to claude for the extension, the extension only there,
+removed from the others in `chrome://extensions`:
+
+    open -na "Google Chrome" --args --profile-directory=Claude
+
+a page behind another login stays out of reach, log in there by hand when a task
+needs it.
+
+## intellij: claude code worktrees (one-time)
+they sit inside the project and intellij would index them. settings, editor,
+file types, "ignore files and folders": add `worktrees`.
+
+## dell u4025qw hub (mac-studio)
+the monitor hub links at usb 2.0, so dac, webcam and the 2.5g ethernet share 480
+mbps and the adi-2 drops out under network load. connect via the tb4 upstream
+with a real tb4/usb4 cable. a `simulated or deferred connection lost` on the top
+hub is the kvm switching, not a fault.
 
 ## obsbot center
 no cask, signed download urls only. install by hand from obsbot.com. the login
@@ -41,6 +164,12 @@ item is set, so it autostarts once installed.
 ## libation (audible account, one-time)
 add the audible account in the app (accounts > add account, locale matters), set
 library folder and export format before the first scan.
+
+## vikunja (mac-studio, one-time)
+desktop app: enter the server url on first start and log in. `vja` needs
+`~/.config/vja/config.rc` with `api_url` and `frontend_url` under
+`[application]`. `api_url` must end in `/v2`, vja only speaks the v2 api
+(server >= 2.5). the first `vja ls` asks for the login and keeps the token.
 
 ## mac app store apps (one-time, per apple account)
 `mas` only installs what the account owns. every `masApps` entry has to be

@@ -16,6 +16,7 @@ paths = [
   '''^\.direnv/''',
   '''^dist/''',
   '''^tmp/''',
+  '''^\.claude/worktrees/''',
   # holds real room/invite links, gitignored, so scans must not fail on it
   '''manifest\.local\.json$''',
 ]

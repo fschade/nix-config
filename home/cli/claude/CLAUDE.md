@@ -14,28 +14,43 @@ Three lines, everything else in this section is detail:
   the mail, into a file or your reply. Sending is mine.
 - **No shell on another machine.** No ssh, scp, sftp, ftp, no rsync to a
   remote host. What runs there is invisible to every guard here, and prod is
-  what sits on the other end. Local targets stay open: localhost, loopback, a
-  VM or container port on 127.x, a `.test` host. A project that genuinely
-  works against a machine lists it in `.claude/ssh-hosts` at its root, one
-  host per line; I put hosts there, you don't. A listed host still asks every
-  time, no allow rule for ssh/scp/rsync.
+  what sits on the other end. Open only: hosts in the project's
+  `.claude/ssh-hosts` (I put them there, you don't), each call still asks.
+  Plain form only, the host as listed and directly after `ssh`:
+  `ssh host -p 22 cmd`, `scp ... host:path`, no redirect, `cd` or `$(...)`.
 - **Deploys only when I ask.** `darwin-rebuild`, `mise run deploy`,
-  `terraform`/`tofu apply`, `kubectl apply`, anything comparable. A repo that
-  whitelists a deploy in its permissions only skips the prompt, it does not
-  change the "only when asked" part.
+  `terraform`/`tofu apply`, `kubectl apply`, anything comparable. bash-guard
+  asks before each one it knows, a repo whitelisting a deploy cannot skip
+  that, and the guard asking is no licence for one I did not ask for.
 
 The detail:
 
 - Local dev is not outward: http writes to localhost, 127.x, ::1,
   host.docker.internal or a `.test` / `.localhost` host are api testing and
   stay open. A project widens that with `.claude/outbound-hosts` at its root,
-  same deal as ssh-hosts. Triggering my own CI (`gh workflow run`,
-  `gh run rerun`) counts as local too.
-- The shell side is enforced by `hooks/bash-guard.sh`, the browser side cannot
-  be: the Chrome tools only see a tab id. There you read, navigate, screenshot
-  and check the console. Typing into a page and submitting it is local dev
-  only (localhost, 127.0.0.1, a `*.test` host). On anything public you submit
-  no form, post no comment and confirm no dialog that writes.
+  and I confirm its hosts when the session starts. A confirmed host opens for
+  the whole session, the sandbox does not ask per call, and the first hard limit
+  still holds there. Triggering my own CI (`gh workflow run`, `gh run rerun`)
+  counts as local too.
+- The shell runs in the claude code sandbox: writes stay in the project, network
+  only to the listed hosts, the credential stores, `.env` files and private keys
+  are out of reach. When something fails against that boundary, say so and leave
+  it to me with `!`: deploys, docker, the nix daemon, git over ssh remotes,
+  anything reading a real `.env`. Never try to route around it. WebFetch runs
+  outside it and asks for every host not in `hooks/webfetch-guard.sh`.
+- Secrets live in `.env`, nothing else does: `.envrc` is tooling and readable,
+  urls, ports and flags go in a tracked file or `mise.local.toml`. A key that
+  tests need is an agent key of its own with a spending limit, handed in
+  through the session env (`.env.agent`, see nix-config's MANUAL.md). You can see it with
+  `env`, so it never goes into output, a file or a commit.
+- The shell side is enforced by the sandbox, cc-safety-net and `hooks/bash-guard.sh`, the
+  browser side cannot be: the Chrome tools only see a tab id. There you read,
+  navigate, screenshot and check the console. Typing into a page and submitting
+  it is local dev only (localhost, 127.0.0.1, a `*.test` host) or a host listed
+  in the project's `.claude/outbound-hosts`, matched against the tab's host, exactly
+  or as a subdomain of a `*.domain` line.
+  On anything else public you submit no form, post no comment and confirm no
+  dialog that writes.
 
 ## Communication
 
@@ -46,30 +61,36 @@ The detail:
   then Y", no account of the attempts before the one that worked, in replies,
   docs and commit messages alike. The path only goes in when I need it to
   decide something, and then in a sentence.
+- What is mine to do goes last, under **Your turn**: numbered steps, each with
+  the exact command in a code block (`! cmd` when it can run in this session)
+  and what I should see after. No "you may want to", no "consider", no step
+  buried mid-paragraph. Nothing for me to do, no section.
 
 ## Working
 
 - Small, clearly scoped tasks: just do them. Larger changes (refactors, new
   modules, anything touching many files): sketch the approach in a few lines
   first and get my OK before writing code.
+- Subagents default to sonnet, fine for search and research. One that writes
+  code gets `model: "opus"` on the Agent call. Either way its report is a
+  claim: read the diff and run the checks yourself before calling it done.
+- You work only in the project you were started in. Anything outside it, ask
+  first.
 - Prefer the smallest diff that solves the problem. No drive-by refactors, no
   speculative abstractions, no over-engineering.
 - Verify work before calling it done: run the project's formatter, linter and
   tests when they exist. Look for mise tasks (mise.toml) first, then Makefile /
   package.json scripts / flake checks.
 - Stop and ask when: several valid approaches with real consequences, deleting
-  or restructuring existing code, anything security-related, or a genuine
-  comprehension gap.
+  data or files the change is not about, anything that changes a security
+  boundary (sandbox, hooks, permissions, secrets), or a genuine comprehension
+  gap. Ask once, your recommendation first.
 - No new dependencies without asking. And no hand-rolling what an existing
   dependency already does.
 - Docs and ADRs don't need asking for, but keep them lean: the shortest thing
   that answers the question, no prose around it. Extend the doc that already
   covers the topic instead of putting a second one beside it. Same cap as
   comments, see `rules/comments.md`.
-- Whatever I am supposed to remember goes into the navi cheats
-  (`home/cli/core/cheats/` in nix-config, Ctrl-/ in the shell): a new
-  shortcut, a command worth keeping, a workflow, a convention. In the same
-  change, not only in the reply. A reply is gone tomorrow, the cheat stays.
 - Skills supply workflows and criteria, never conventions. Where a skill's
   git, commit, doc or reporting habits differ from this file, this file wins.
 - Never invent technical details: versions, env vars, API endpoints, config
@@ -108,6 +129,9 @@ The detail:
   state.
 - Never amend, rebase, or reset commits you did not create in this session,
   and never rewrite history on shared branches.
+- Your worktrees live in `<repo>/.claude/worktrees/<name>`, on their own branch,
+  and go away after the merge. Never in a temp dir or next to the repo: next to
+  the repo is where mine land, through `wt`.
 - Stage by naming paths. `git add -A` or a bare `.` takes whatever else sits
   in the tree with it, and the commit stops being what its message says.
   Standalone `git add` only when a tool genuinely needs it (nix flakes only
@@ -127,17 +151,19 @@ The detail:
 
 - Several machines run this same setup out of one repo (nix-config): macOS via
   nix-darwin + home-manager, linux via home-manager alone. Don't assume which
-  machine you are on; ask the hostname when it matters.
+  machine you are on; run `hostname` when it matters.
 - This global claude config is versioned in nix-config (`home/cli/claude/`)
   and that repo is the only source of truth: never edit `~/.claude/settings.json`
   or `~/.claude/CLAUDE.md` directly, a switch overwrites them. Change the repo
   copies and tell me to deploy.
-- Skills, agents and commands come from pinned flake inputs
-  (`home/cli/claude/default.nix`); every surface claude code reads is a
-  read-only store path (`~/.claude/skills`, `agents`, `commands`, `plugins`,
-  `~/.agents`). So no `npx skills add -g`, no `claude plugin install`: declare
-  it there and tell me to deploy. Language servers go into settings.json under
-  `lspServers`. Project-scoped skills and agents (`<repo>/.claude/skills`,
-  `<repo>/.agents/skills`) are yours to install as you like.
+- No global skills, agents, commands or plugins, by choice: those dirs are
+  read-only, so no `npx skills add -g`, no `claude plugin install`. If one is
+  genuinely needed, propose it in `home/cli/claude/default.nix`. Unwanted
+  bundled skills are `off` in settings.json `skillOverrides`, language servers
+  go under `lspServers`. Project skills and agents (`<repo>/.claude/skills`,
+  `<repo>/.agents/skills`) are yours to install.
+- EGM artifact directory: .egm
+  The path is relative to the working directory, so egm starts from the repo
+  root. `.egm/` is in the global gitignore.
 - Preferred task runner: mise (`mise run <task>`). Check mise.toml for how to
   build/test/deploy before inventing commands.

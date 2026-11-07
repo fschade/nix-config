@@ -29,13 +29,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # borrowed with thanks from github.com/addyosmani/agent-skills (MIT)
-    skills-addyosmani = {
-      url = "github:addyosmani/agent-skills";
-      flake = false;
-    };
-    skills-humanizer = {
-      url = "github:blader/humanizer"; # strips ai writing tells
+    # borrowed with thanks from github.com/google/elephant-goldfish-model (Apache-2.0)
+    plugin-egm = {
+      url = "github:google/elephant-goldfish-model";
       flake = false;
     };
 

@@ -12,8 +12,8 @@
 - Don't swallow errors: no ignored error returns, no empty catch blocks. When
   ignoring one is genuinely right, the comment says why.
 - If a change needs a manual step afterwards (approval dialogs, restarts,
-  re-imports), say it loudly at the end. And if the repo keeps a place for
-  manual steps, add it there.
+  re-imports), it goes under **Your turn** (CLAUDE.md). And if the repo keeps a
+  place for manual steps, add it there.
 - Evergreen names and comments: name things by what they do in the domain,
   never by their history: no `new`, `v2`, `improved`, `legacy` in identifiers,
   no comments about what changed.
@@ -33,12 +33,7 @@
   is stricter still: gitignored contents are a vault, `data-privacy.md`.
 - One-way wall between AI config and the repo. AI-facing files (CLAUDE.md,
   AGENTS.md, `.claude/`, `.agents/`, rules, skills, agents, hooks, memory) may
-  name each other and any repo file freely. Nothing repo-facing points back:
-  no code, comment, doc, script, identifier, commit message or PR text
-  references an AI file. A README never says "see CLAUDE.md", a comment never
-  cites a rule file as its why, an ADR never quotes an agent instruction. When
-  a why lives only in an AI file, restate it in place instead of pointing at
-  it. This is separation, not secrecy: the AI files may sit visibly in the
-  tree, the repo artifacts just never lean on them. Only where AI
-  config is itself the subject (a repo that ships it, a commit that changes
-  `.claude/`) is naming it payload, not bleed.
+  name anything. Nothing repo-facing (code, comment, doc, script, identifier,
+  commit message, PR text) points back at them; when a why lives only in an AI
+  file, restate it in place. Exception: AI config is itself the subject (a repo
+  that ships it, a commit that changes `.claude/`).

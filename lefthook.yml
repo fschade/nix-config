@@ -18,6 +18,7 @@ pre-commit:
       glob:
         - "home/cli/claude/hooks/*"
         - "home/cli/claude/statusline-command.sh"
+        - "home/cli/claude/claude-launcher.sh"
       run: ./home/cli/claude/hooks/run-tests.sh
 
 commit-msg:

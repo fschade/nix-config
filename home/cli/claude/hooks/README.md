@@ -3,7 +3,61 @@
 `home/cli/claude/default.nix` installs these to `~/.claude/hooks` as a read-only
 store path, `settings.json` wires them up. Both need a deploy. `run-tests.sh` is
 the suite behind `mise run claude-hooks-test`; a change to a guard, the policy or
-the statusline ships with its cases there.
+the statusline ships with its cases there. It prints only failures and a tally,
+`VERBOSE=1` lists every passing case.
+
+## Layers
+
+- Boundary: the claude code sandbox, `sandbox` in `settings.json`. The OS enforces
+  it for every process the shell starts: network only to `allowedDomains`, writes
+  only in the project and the caches, the credential stores, tokens and any `.env`
+  or private key under the home directory gone.
+  Everything an agent needs a real credential for has to be in `excludedCommands`.
+- `claude-launcher.sh`, installed as `claude`: passes
+  `allowUnsandboxedCommands: false` by `--settings`, so a repo's settings cannot
+  widen the sandbox, also on linux without managed settings. Adds the hosts of
+  `.claude/outbound-hosts` and the ssh patterns of `.claude/ssh-hosts`, each after
+  a yes at session start. Sets `disableAllHooks: false`, flag settings outrank a
+  project's. A `--settings` of your own replaces the launcher's, claude keeps only
+  the last one.
+- Damage inside the boundary: cc-safety-net. Its `guardrails` rulebook blocks the
+  forge CLIs, publishing, mail, git push and staging everything.
+- Intent, not a boundary: `bash-guard.sh`. It reads the command through shfmt's
+  syntax tree (rules in `bash-guard.jq`), so text in strings, heredocs and commit
+  messages is never a command. It looks through `sudo`, `env`, `xargs`,
+  `find -exec` and `rtk`, follows `sh -c`, `eval` and a heredoc fed to a shell,
+  not text piped into one or a script file. What shfmt cannot parse is blocked.
+  It asks before deploys and keeps what a rulebook cannot express. Where a plain
+  http call or an ssh may go is the sandbox's call alone, what the guard misses
+  still hits the sandbox.
+
+Outside the sandbox, with only the hooks and permission rules in front: `!`
+commands, WebFetch, MCP, the Chrome tools, and `excludedCommands`. An ssh that
+misses its pattern stays inside, without network, keys or agent. One that matches
+is only as safe as its prompt. `deny` rules refuse the spellings that start a
+local program, `ProxyCommand`, `LocalCommand`, `-F`, `rsync -e`, but a list of
+spellings is not complete (`-oproxycommand=`, `rsync -ave`, `scp prod:/x other:/y`),
+so read the line before the yes. The IDE's `mcp__idea__*` tools that run code are
+denied, its file edits still happen outside. The Chrome `computer` tool can type
+and click on any page, what limits it is a chrome profile without logins, see
+`MANUAL.md`.
+
+Inside, still open: http writes to any listed host, so github.com with a token
+from a file `denyRead` does not name, domain fronting, the caches as a place to
+leave files. `denyRead` does not stop the Read tool, that is cc-safety-net's part
+and the `Read(...)` deny rules for the names its catalog lacks. A dev server or
+test run reading a real `.env` or `.pem` fails in the agent's shell, `.env.dist`,
+`.env.example`, `.env.sample`, `.env.template`, `*cert.pem` and `ca.pem` stay
+readable. On linux `denyWrite` takes no globs, so the host file entries do nothing
+there, and unix sockets stay unrestricted.
+
+The nix daemon socket is closed on purpose: a fixed-output derivation reaches the
+network past the list. `git fetch` and `pull` are not excluded because
+`--upload-pack` runs commands, docker not because `docker compose` runs anything.
+`rtk` must not rewrite an excluded command, `rtk gh ...` misses its pattern, so
+`default.nix` lists them in rtk's `exclude_commands`.
+
+## Hooks
 
 The shell guards share one contract: only exit 2 blocks, any other exit is
 non-blocking, so an unparsable payload ends in exit 2. cc-safety-net answers on
@@ -11,11 +65,14 @@ stdout (`permissionDecision: deny`) and fails closed on its own errors.
 
 | Event | Matcher | Hook |
 |---|---|---|
-| `PreToolUse` | all tools | `cc-safety-net hook --coding-cli`, destructive commands and credential reads |
-| `PreToolUse` | `Bash` | `bash-guard.sh`, what leaves the machine, git staging, hook bypasses, k8s/docker bulk deletes, global installs |
+| `PreToolUse` | all tools | `cc-safety-net hook --coding-cli`, destructive commands, credential reads, the `guardrails` rulebook |
+| `PreToolUse` | `Bash` | `bash-guard.sh` on shfmt's syntax tree, deploys (ask), `gh api` writes, nix copy to a store, applescript mail, k8s bulk deletes, global skill installs, writes to the host files |
+| `PreToolUse` | `WebFetch` | `webfetch-guard.sh`, docs hosts from its list pass, every other host asks, also in auto mode. a listed host still sees the url |
 | `PreToolUse` | `Edit\|Write` | `test-guard.sh`, added skip/only markers |
+| `PreToolUse` | `Bash` | `rtk hook claude`, rewrites commands to `rtk <cmd>` for compact output. a denied command passes unrewritten, `allow` only where an allow rule already matches. `rtk gain` shows the savings |
 | `PostToolUse` | `Bash` | `audit-log.sh`, logs infra mutations, never blocks |
 | `SessionStart` | `*` | `herdr-agent-state.sh`, generated by herdr at build time |
+| `Stop` | all | `stop-recheck.sh`, after a turn with tool calls makes claude compare a longer final answer with the request once. a reminder, no guarantee |
 
 ## cc-safety-net
 
@@ -28,35 +85,51 @@ decisions land in `~/.cc-safety-net/logs`.
 It runs as a plain hook, not a plugin, so `status` and `doctor` report the plugin
 as missing. The hook line in `settings.json` is what enforces.
 
-`cc-safety-net/policy.json` is the only tuning, installed to
+`cc-safety-net/policy.json` tunes the built-in rules, installed to
 `~/.cc-safety-net/policy.json`. It adds the stores the catalog lacks (`~/.gnupg`,
 `~/.config/sops`, `~/Library/Keychains`, `~/.kube` as a dir), exempts `.env.dist`,
-and turns on `paranoid_rm`. Turning a built-in rule off is
+and turns on `paranoid_rm`, which blocks recursive deletes outside temp dirs,
+`rm -r` without `-f` included. Turning a built-in rule off is
 `destructive_command_protection.overrides` / `secret_protection.overrides` with
-the rule id from `explain`. A project may add its own `.cc-safety-net/policy.json`.
+the rule id from `explain`; `network.upload-remote` is off, where uploads go is
+the sandbox's call. A project may add its own `.cc-safety-net/policy.json`, with
+`CC_SAFETY_NET_PROJECT_TIGHTEN_ONLY` it can only add rules.
+
+`cc-safety-net/rules/` goes to `~/.cc-safety-net/rules` as copies, symlinked
+rule files are dropped silently. Rules match exact tokens and can only block:
+an unknown git global option (`--no-pager`) eats the next word, and
+`gh alias set` / `gh config set` hit the forge rule.
 
 ## Per project
 
-- `.claude/outbound-hosts`: extra hosts the http write rules accept, one per
-  line, `#` comments and blanks skipped. Exact match, no suffixes. Found by
-  walking up from the session cwd, first hit wins. Every target of the call has
-  to be listed, a listed name elsewhere in the line unlocks nothing. Opens only
-  the http clients, never the forge CLIs, publishing or mail.
-- `.claude/ssh-hosts`: the machines a project may reach over ssh/scp/rsync, same
-  format and rules. Jump hosts count as targets, `-F` and HostName/ProxyCommand
-  overrides block.
+- `.claude/outbound-hosts`: extra hosts for the sandbox, one per line, `#`
+  comments and blanks skipped. Exact hosts or `*.domain.tld`, no regex, no `*.tld`, no ports. Found by
+  walking up from the session cwd, first hit wins. The launcher asks at session
+  start, without a terminal or with an invalid line it ignores the file. A
+  confirmed host is open for the whole session, nothing asks per call. The forge
+  CLIs, publishing and mail stay blocked by cc-safety-net. The browser rule in
+  CLAUDE.md reads the same file, but only as text: no hook enforces it.
+- `.claude/ssh-hosts`: the machines ssh/scp/rsync/sftp/mosh may leave the sandbox
+  for, a local VM included. Same format and same yes at session start, read by the
+  launcher, `user@host` allowed. A line matches only as written: `prod.example.com`
+  does not cover `root@prod.example.com`. The host comes directly after `ssh`, so
+  `ssh -p 22 prod.example.com` stays in the sandbox and fails. `*.domain.tld` works
+  too, but `*` in a pattern spans spaces: with it `ssh other.example.org
+  a.domain.tld` matches as well, so an unlisted host gets as far as the prompt.
 - `.claude/settings.json`: extra allow rules for permission prompts. An allow
-  never overrides a hook block, which is why the host files are read directly.
+  never overrides a hook block or an `ask` rule, and a repo's sandbox entries are
+  ignored, which is why the host files are read by the launcher.
 
-A listed host is allowed, not approved: the guard answers `ask` for every call
-reaching one, whatever the spelling, and a global `ask` rule outranks a project
-allow. Auto mode prompts too, bypass mode is off.
+A host in `ssh-hosts` is allowed, not approved: the global `ask` rules outrank a
+project allow, so every matching call prompts. Auto mode prompts too, bypass mode
+is off.
 
 A project settings file could set `disableAllHooks`, so on darwin
-`modules/darwin/claude.nix` installs the PreToolUse hooks, ask/deny rules and the
-bypass lock as managed settings
+`modules/darwin/claude.nix` installs the PreToolUse hooks, ask/deny rules, the
+bypass lock and the sandbox block as managed settings
 (`/Library/Application Support/ClaudeCode/managed-settings.json`), which nothing
-overrides. The hooks run twice there. Linux has no managed copy.
+overrides. The hooks run twice there. Linux has no managed copy, only the
+launcher's flag settings.
 
 The user maintains the host files: `Edit` is denied on them, bash-guard allows
 only reading them.

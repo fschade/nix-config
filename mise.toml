@@ -34,7 +34,7 @@ description = "Format all nix files"
 run = "git ls-files -z --cached --others --exclude-standard '*.nix' | xargs -0 alejandra --quiet"
 
 [tasks.update]
-description = "Bump every flake input (nixpkgs, skills, brew taps), commit + deploy after"
+description = "Bump every flake input (nixpkgs, claude plugin, brew taps), commit + deploy after"
 # everything moves in one go, homebrew taps included. brew-src is pinned to a
 # version tag, so it only re-locks, it doesnt move: bump brew itself by editing
 # that tag in flake.nix.
@@ -43,6 +43,10 @@ run = "nix flake update"
 [tasks.apps]
 description = "List the apps/CLIs you declared (nix packages + brew casks)"
 run = "./scripts/apps.sh"
+
+[tasks.claude-smoke]
+description = "Headless probes of the deployed claude config (plugin, skills, mcp, subagent model), costs a few tokens"
+run = "./scripts/claude-smoke.sh"
 
 [tasks.claude-hooks-test]
 description = "Regression tests for the claude code guard hooks (see home/cli/claude/hooks/README.md)"

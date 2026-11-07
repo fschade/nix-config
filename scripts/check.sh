@@ -40,8 +40,8 @@ if command -v swiftc >/dev/null 2>&1; then
   done < <(git ls-files --cached --others --exclude-standard 'tools/web-app/*.swift')
 fi
 
-gitleaks dir . --no-banner
-gitleaks git . --no-banner
+gitleaks dir . --no-banner --log-level warn
+gitleaks git . --no-banner --log-level warn
 
 if [ "${CHECK_SKIP_HOOK_TESTS:-}" != "1" ]; then
   ./home/cli/claude/hooks/run-tests.sh

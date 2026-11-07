@@ -22,3 +22,6 @@ dist/
 # local scratch: reports, notes, throwaway files. the gates skip it, so it has
 # to be ignored here too and not only in someone's global gitignore
 tmp/
+
+# claude code worktrees: full checkouts the gates would lint a second time
+.claude/worktrees/

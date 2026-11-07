@@ -6,6 +6,11 @@
       "paranoid_rm": true
     }
   },
+  "destructive_command_protection": {
+    "overrides": {
+      "network.upload-remote": "off"
+    }
+  },
   "secret_protection": {
     "deny_paths": [
       "~/.gnupg",
