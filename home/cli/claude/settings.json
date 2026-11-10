@@ -85,7 +85,8 @@
       "allowWrite": [
         "~/.cache",
         "~/Library/Caches",
-        "~/go/pkg"
+        "~/go/pkg",
+        "~/.local/share/pnpm"
       ],
       "denyRead": [
         "~/**/.env",

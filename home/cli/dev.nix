@@ -66,6 +66,17 @@
     })
   ];
 
+  # pnpm 12 locks its store in $XDG_RUNTIME_DIR (if 0700), else in /tmp/pnpm-store-operation-locks-<uid>,
+  # which the claude sandbox can't write. macos has no runtime dir, one in the cache is sandbox-writable
+  home.sessionVariables = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
+    XDG_RUNTIME_DIR = "${config.xdg.cacheHome}/run";
+  };
+  home.activation.xdgRuntimeDir = lib.mkIf pkgs.stdenv.hostPlatform.isDarwin (
+    lib.hm.dag.entryAfter ["writeBoundary"] ''
+      $DRY_RUN_CMD install -d -m700 "${config.xdg.cacheHome}/run"
+    ''
+  );
+
   xdg.dataFile."copier/templates".source = ../../custom/templates/copier;
 
   programs.git.settings.trim.bases = "develop,master,main";

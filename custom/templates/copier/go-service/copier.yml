@@ -18,7 +18,7 @@ module_path:
 go_version:
   type: str
   help: Go toolchain version
-  default: "1.26"
+  default: "1.27"
 
 description:
   type: str

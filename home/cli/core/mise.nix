@@ -15,8 +15,8 @@
 
       tools = {
         node = "26";
-        pnpm = "11";
-        go = "1.26";
+        pnpm = "12";
+        go = "1.27";
         rust = "stable";
         usage = "3";
       };
