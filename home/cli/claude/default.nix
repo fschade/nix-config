@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   lib,
   inputs,
@@ -83,6 +84,13 @@
 
   # empty read-only store dirs, nothing installs skills, agents, commands or plugins behind nix's back
   locked = name: pkgs.runCommand "${name}-dir-locked" {} "mkdir -p $out";
+
+  # plugin hooks get ${CLAUDE_PLUGIN_DATA} = ~/.claude/plugins/data/<id>, claude creates it before the hook runs
+  pluginData = "${config.home.homeDirectory}/.local/share/claude/plugin-data";
+  plugins = pkgs.runCommand "plugins-dir-locked" {} ''
+    mkdir -p $out
+    ln -s ${pluginData} $out/data
+  '';
 in {
   # claude-code from nixpkgs, pinned by flake.lock: the settings here rely on version-specific keys
   # bubblewrap and socat carry the sandbox on linux, macos brings seatbelt
@@ -108,7 +116,7 @@ in {
     ".claude/agents".source = locked "agents";
     ".claude/commands".source = locked "commands";
     ".agents".source = pkgs.runCommand "agents-dir-locked" {} "mkdir -p $out/skills";
-    ".claude/plugins".source = locked "plugins";
+    ".claude/plugins".source = plugins;
   };
 
   home.activation.claudeSurfacesTakeover = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
@@ -122,6 +130,7 @@ in {
   '';
 
   home.activation.claudeConfig = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    $DRY_RUN_CMD install -d -m700 "${pluginData}"
     $DRY_RUN_CMD install -Dm644 ${./CLAUDE.md} "$HOME/.claude/CLAUDE.md"
     $DRY_RUN_CMD install -Dm644 ${./settings.json} "$HOME/.claude/settings.json"
     # cc-safety-net refuses a symlinked policy, so a copy instead of home.file
