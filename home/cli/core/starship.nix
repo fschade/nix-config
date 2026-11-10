@@ -12,6 +12,9 @@
         "$os"
         "$directory"
         "$git_branch"
+        "$git_commit"
+        "\${custom.git_repo}"
+        "$git_state"
         "$git_status"
         "$nix_shell"
         "$nodejs$golang$rust$python"
@@ -37,8 +40,38 @@
       git_branch = {
         symbol = " ";
         style = "bold mauve";
+        format = "on [$symbol$branch]($style)( [$remote_name/$remote_branch](bold lavender)) ";
+        # default hides the remote whenever both branch names match, so nearly always
+        always_show_remote = true;
+        only_attached = true;
       };
-      git_status.style = "bold peach";
+
+      git_commit = {
+        style = "bold mauve";
+        format = "on [$hash$tag]($style) ";
+        tag_disabled = false;
+        tag_symbol = " #";
+      };
+
+      custom.git_repo = {
+        description = "owner/repo behind the remote of the current branch";
+        # a repo without a remote is normal here, the empty output hides the module
+        command = "git remote get-url \"$(git config \"branch.$(git branch --show-current).remote\" || echo origin)\" 2>/dev/null | sed -E 's#\\.git$##; s#^.*[:/]([^/:]+/[^/]+)$#\\1#'";
+        when = true;
+        require_repo = true;
+        shell = ["bash" "--noprofile" "--norc"];
+        style = "subtext0";
+        format = "([@$output]($style) )";
+      };
+
+      git_state.style = "bold red";
+
+      git_status = {
+        style = "bold peach";
+        ahead = "⇡\${count}";
+        behind = "⇣\${count}";
+        diverged = "⇕⇡\${ahead_count}⇣\${behind_count}";
+      };
 
       nix_shell = {
         symbol = " ";
