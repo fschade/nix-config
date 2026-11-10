@@ -25,6 +25,16 @@
     exec ${pkgs.bash}/bin/sh ${inputs.claude-secret-guard}/deny-secret-commit.sh "$@"
   '';
 
+  # ultra has only the weekly limit, the hud shows only five_hour, so the weekly window takes its place
+  claudeHud = let
+    hud = lib.getExe inputs.best-claude-hud.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  in
+    pkgs.writeShellScriptBin "best-claude-hud" ''
+      [ -t 0 ] && exec ${hud} "$@" # --config and friends, no statusline payload
+      ${lib.getExe pkgs.jq} -c 'if .rate_limits and .rate_limits.five_hour == null then .rate_limits.five_hour = .rate_limits.seven_day else . end' |
+        exec ${hud} "$@"
+    '';
+
   hooks = pkgs.runCommand "claude-hooks" {} ''
     install -Dm755 ${herdrHook} $out/herdr-agent-state.sh
     ln -s ${ccSafetyNet}/bin/cc-safety-net $out/cc-safety-net
@@ -95,7 +105,7 @@ in {
   # claude-code from nixpkgs, pinned by flake.lock: the settings here rely on version-specific keys
   # bubblewrap and socat carry the sandbox on linux, macos brings seatbelt
   home.packages =
-    [pkgs.claude-code pkgs.ctx7 ccSafetyNet inputs.best-claude-hud.packages.${pkgs.stdenv.hostPlatform.system}.default]
+    [pkgs.claude-code pkgs.ctx7 ccSafetyNet claudeHud]
     ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [pkgs.bubblewrap pkgs.socat];
 
   # loads the plugins in place from the store, a marketplace install would need a writable ~/.claude/plugins
@@ -117,6 +127,7 @@ in {
     ".claude/commands".source = locked "commands";
     ".agents".source = pkgs.runCommand "agents-dir-locked" {} "mkdir -p $out/skills";
     ".claude/plugins".source = plugins;
+    ".claude/best-claude-hud/config.toml".source = ./best-claude-hud.toml;
   };
 
   home.activation.claudeSurfacesTakeover = lib.hm.dag.entryBefore ["checkLinkTargets"] ''
