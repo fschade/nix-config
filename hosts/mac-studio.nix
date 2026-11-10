@@ -32,7 +32,7 @@ in {
 
   homebrew = {
     casks = [
-      "fujitsu-scansnap-home"
+      "scansnap-home"
       "whatsapp"
       "home-assistant"
       "obs" # streaming, only this host has the cams and the rode gear
