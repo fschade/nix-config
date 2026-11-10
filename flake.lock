@@ -374,6 +374,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-master": {
+      "locked": {
+        "lastModified": 1794329306,
+        "narHash": "sha256-zq131m0XOj1VcvJKYh8qYG2EIOAOKJCi0t/Jakizucc=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "bb299c59596e12971e04ac9a0c6b0bec4ba0de54",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "master",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "plugin-context-mode": {
       "flake": false,
       "locked": {
@@ -440,6 +456,7 @@
         "nix-homebrew": "nix-homebrew",
         "nix-index-database": "nix-index-database",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-master": "nixpkgs-master",
         "plugin-context-mode": "plugin-context-mode",
         "plugin-egm": "plugin-egm",
         "plugins-official": "plugins-official"
