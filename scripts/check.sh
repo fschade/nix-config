@@ -42,7 +42,3 @@ fi
 
 gitleaks dir . --no-banner --log-level warn
 gitleaks git . --no-banner --log-level warn
-
-if [ "${CHECK_SKIP_HOOK_TESTS:-}" != "1" ]; then
-  ./home/cli/claude/hooks/run-tests.sh
-fi

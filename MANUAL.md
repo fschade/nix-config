@@ -46,43 +46,22 @@ a mise-installed claude-code puts a shim ahead of the nix one on `PATH`:
     mise uninstall --all claude-code
 
 after the deploy: start `claude` once so it rewrites
-`~/.claude/chrome/chrome-native-host` to the store path, then run
-`mise run claude-smoke`.
-
-## jetbrains mcp server (user scope, one-time)
-managed settings only take https servers, the ide's local one stays in
-`~/.claude.json`:
-
-    claude mcp add -s user -t http idea http://127.0.0.1:64342/stream
+`~/.claude/chrome/chrome-native-host` to the store path.
 
 ## claude code sandbox
-after the first deploy with it: `mise run claude-smoke`, then `/sandbox` in a
-session, its Config tab lists what applies.
+global defaults live in `home/cli/claude/settings.json`. what you approve with
+"don't ask again" for a host lands in the project's `.claude/settings.local.json`,
+so each project learns on its own. a host every project needs goes into
+`allowedDomains` instead. commands get no unsandboxed retry
+(`allowUnsandboxedCommands`), claude hands them over as `! cmd`. `/sandbox` shows
+what applies.
 
-linux: try one host first. `failIfUnavailable` keeps claude from starting where
-bubblewrap or user namespaces are restricted, an lxc container for one.
+## claude code plugins (after a deploy that changes them)
+plugins load from `CLAUDE_CODE_PLUGIN_DIRS`, and shells inherit the old value
+past the home-manager guard. new terminal window, or in the running one:
 
-what fails in the agent's shell, by design, run it yourself with `!`: deploys,
-docker, the nix daemon (`nix build`, `nix flake metadata`), git over ssh remotes,
-anything reading a real `.env`.
-
-check `.claude/ssh-hosts` in a project with a real host, after the yes at session
-start: `/sandbox` lists its patterns, a plain `ssh host true` brings a prompt titled
-"Bash command (unsandboxed)" and works, the same to an unlisted host fails,
-`ssh host -o ProxyCommand=x true` is denied.
-
-linux: the backstop check in `home/cli/claude/hooks/README.md` shows whether the
-launcher's `disableAllHooks: false` beats a project's `true`.
-
-a tracked `.pem` or `.key` is unreadable in the agent's shell. if
-`claude-smoke` reports git failing beside one, take the name out of `denyRead` in
-`home/cli/claude/settings.json`.
-
-an agent that needs a key for tests (openrouter, say) gets one of its own with a
-spending limit, never the main key. put it in `.env.agent` and load only that
-with `dotenv_if_exists .env.agent` in the project's `.envrc`; a plain `dotenv`
-would hand every secret in `.env` to the session. start claude from a shell
-where direnv ran, the sandbox passes the env through.
+    unset __HM_SESS_VARS_SOURCED
+    exec zsh -l
 
 ## ssh key per project (one-time, per server)
 own key, own non-root user:
@@ -107,10 +86,6 @@ which key ssh takes for this host, in `home/cli/core/ssh.nix`:
       IdentityFile = "~/.ssh/app-prod";
       IdentitiesOnly = "yes";
     };
-
-that the agent may reach it, one line in the project's `.claude/ssh-hosts`:
-
-    prod.example.com
 
 ## ssh agent confirmation (per project that reaches production)
 a dialog for every use of the key, in an agent holding only that key. macOS ships

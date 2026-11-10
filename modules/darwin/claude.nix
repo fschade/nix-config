@@ -5,7 +5,7 @@
 }: let
   # a project settings.json can set disableAllHooks, managed settings it cannot
   managed = pkgs.runCommand "claude-managed-settings.json" {nativeBuildInputs = [pkgs.jq];} ''
-    jq '{permissions: (.permissions | {ask, deny, disableBypassPermissionsMode}), hooks: {PreToolUse: .hooks.PreToolUse}, sandbox}' \
+    jq '{permissions: (.permissions | {deny, disableBypassPermissionsMode}), hooks: {PreToolUse: .hooks.PreToolUse}}' \
       ${../../home/cli/claude/settings.json} >$out
   '';
 in {

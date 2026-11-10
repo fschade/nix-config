@@ -25,7 +25,7 @@
     sad # search and replace like sed, but with diff preview
 
     jq # command-line JSON processor
-    shfmt # shell formatter, bash-guard reads commands through its --to-json AST
+    shfmt # shell formatter
     jless # TUI viewer for big JSON/YAML
     glow # renders markdown in the terminal, the navi doc entries open with it
     yq-go # yaml processor https://github.com/mikefarah/yq

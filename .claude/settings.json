@@ -2,12 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(mise run check)",
-      "Bash(mise run fmt)",
-      "Bash(mise run apps)",
-      "Bash(mise run claude-hooks-test)",
-      "Bash(alejandra *)",
-      "Bash(deadnix *)",
-      "Bash(statix check *)"
+      "Bash(mise run fmt)"
+    ],
+    "deny": [
+      "Bash(mise run deploy *)",
+      "Bash(mise run rollback *)",
+      "Bash(mise run gc *)"
     ]
   }
 }

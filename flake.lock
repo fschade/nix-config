@@ -1,5 +1,27 @@
 {
   "nodes": {
+    "best-claude-hud": {
+      "inputs": {
+        "flake-parts": "flake-parts",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1786602913,
+        "narHash": "sha256-fRwFaQaxCo/kxQGdEGEuzwux1hpp0OAEB3r1NhYO4W0=",
+        "owner": "GaoSSR",
+        "repo": "best-claude-hud",
+        "rev": "0dd174e30eaa6f4a54661a9a4aadb37facdc9f7e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GaoSSR",
+        "repo": "best-claude-hud",
+        "type": "github"
+      }
+    },
     "brew-src": {
       "flake": false,
       "locked": {
@@ -53,6 +75,38 @@
         "type": "github"
       }
     },
+    "claude-secret-guard": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793239525,
+        "narHash": "sha256-qKQj6drtpKFtIKfKzdzHC4Ns0eqlR6MwdzxlwCghNcU=",
+        "owner": "banterny",
+        "repo": "claude-code-secret-guard",
+        "rev": "85315d92c11897dbd079be8d8510de481863648f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "banterny",
+        "repo": "claude-code-secret-guard",
+        "type": "github"
+      }
+    },
+    "context7": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794310992,
+        "narHash": "sha256-Pk638jzG499IgDs62ox+ce1aSj/2Cm7G9ttMvaLfbEc=",
+        "owner": "upstash",
+        "repo": "context7",
+        "rev": "a94c2cef0f0b88219fe4d3d34ada4c0aae8d2e64",
+        "type": "github"
+      },
+      "original": {
+        "owner": "upstash",
+        "repo": "context7",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -66,6 +120,24 @@
       "original": {
         "owner": "edolstra",
         "repo": "flake-compat",
+        "type": "github"
+      }
+    },
+    "flake-parts": {
+      "inputs": {
+        "nixpkgs-lib": "nixpkgs-lib"
+      },
+      "locked": {
+        "lastModified": 1778716662,
+        "narHash": "sha256-m1Yf0wZ8j1OHjTc2UwHwyQRSnNeSgLJOd7q5Y45hzi4=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "f7c1a2d347e4c52d5fb8d10cb4d94b5884e546fb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
         "type": "github"
       }
     },
@@ -287,6 +359,37 @@
         "type": "github"
       }
     },
+    "nixpkgs-lib": {
+      "locked": {
+        "lastModified": 1777168982,
+        "narHash": "sha256-GOkGPcboWE9BmGCRMLX3worL4EMnsnG8MyKmXNeYuhQ=",
+        "owner": "nix-community",
+        "repo": "nixpkgs.lib",
+        "rev": "f5901329dade4a6ea039af1433fb087bd9c1fe14",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "nixpkgs.lib",
+        "type": "github"
+      }
+    },
+    "plugin-context-mode": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794280997,
+        "narHash": "sha256-4o9lYJiGTpraS5a0sGXa0X6Ga8ZbbgPZxIl+a6rWwwI=",
+        "owner": "mksglu",
+        "repo": "context-mode",
+        "rev": "9cd90eac190fb420e5a74aa8d0ae7513b7d728d2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mksglu",
+        "repo": "context-mode",
+        "type": "github"
+      }
+    },
     "plugin-egm": {
       "flake": false,
       "locked": {
@@ -303,11 +406,30 @@
         "type": "github"
       }
     },
+    "plugins-official": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794274029,
+        "narHash": "sha256-hrUTcp9tRpomnvud6ywIp/0kNullipnAvgiguQAZLZs=",
+        "owner": "anthropics",
+        "repo": "claude-plugins-official",
+        "rev": "dceb15d50832e6adf380bedc26dde03d251324b9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "anthropics",
+        "repo": "claude-plugins-official",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
+        "best-claude-hud": "best-claude-hud",
         "brew-src": "brew-src",
         "catppuccin": "catppuccin",
         "cc-safety-net": "cc-safety-net",
+        "claude-secret-guard": "claude-secret-guard",
+        "context7": "context7",
         "home-manager": "home-manager",
         "homebrew-cask": "homebrew-cask",
         "homebrew-core": "homebrew-core",
@@ -318,7 +440,30 @@
         "nix-homebrew": "nix-homebrew",
         "nix-index-database": "nix-index-database",
         "nixpkgs": "nixpkgs",
-        "plugin-egm": "plugin-egm"
+        "plugin-context-mode": "plugin-context-mode",
+        "plugin-egm": "plugin-egm",
+        "plugins-official": "plugins-official"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "best-claude-hud",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1782012058,
+        "narHash": "sha256-9mWUnReOUXfKjZuJAL/bAFH3LUyECTRtXgSNVjRw3UY=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "8534567325bd8a8d2928e6afd81e0a87d19efd3c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
       }
     },
     "systems": {

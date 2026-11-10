@@ -5,8 +5,8 @@ gets syntax highlighting, shellcheck/yaml tooling and clean diffs.
 
 More than a few lines of shell, YAML, config or template text goes here, wired
 with `.source = ./...` or `builtins.readFile ./...`. One-liners stay inline. A
-script belonging to exactly one module travels with it instead (claude hooks,
-statusline, sketchybar plugins).
+script belonging to exactly one module travels with it instead (sketchybar
+plugins).
 
 | Dir | What | Wired via |
 |---|---|---|

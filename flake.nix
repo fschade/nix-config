@@ -35,9 +35,38 @@
       flake = false;
     };
 
+    # borrowed with thanks from github.com/mksglu/context-mode (Elastic-2.0)
+    plugin-context-mode = {
+      url = "github:mksglu/context-mode";
+      flake = false;
+    };
+
+    # borrowed with thanks from github.com/anthropics/claude-plugins-official (Apache-2.0)
+    plugins-official = {
+      url = "github:anthropics/claude-plugins-official";
+      flake = false;
+    };
+
+    # borrowed with thanks from github.com/upstash/context7 (MIT)
+    context7 = {
+      url = "github:upstash/context7";
+      flake = false;
+    };
+
+    # borrowed with thanks from github.com/banterny/claude-code-secret-guard (MIT)
+    claude-secret-guard = {
+      url = "github:banterny/claude-code-secret-guard";
+      flake = false;
+    };
+
     cc-safety-net = {
       url = "github:kenryu42/cc-safety-net";
       flake = false;
+    };
+
+    best-claude-hud = {
+      url = "github:GaoSSR/best-claude-hud";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     nix-homebrew = {

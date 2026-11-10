@@ -43,11 +43,3 @@ run = "nix flake update"
 [tasks.apps]
 description = "List the apps/CLIs you declared (nix packages + brew casks)"
 run = "./scripts/apps.sh"
-
-[tasks.claude-smoke]
-description = "Headless probes of the deployed claude config (plugin, skills, mcp, subagent model), costs a few tokens"
-run = "./scripts/claude-smoke.sh"
-
-[tasks.claude-hooks-test]
-description = "Regression tests for the claude code guard hooks (see home/cli/claude/hooks/README.md)"
-run = "./home/cli/claude/hooks/run-tests.sh"

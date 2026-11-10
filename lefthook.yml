@@ -10,16 +10,7 @@ pre-commit:
       stage_fixed: true
     check:
       priority: 2
-      env:
-        CHECK_SKIP_HOOK_TESTS: "1"
       run: mise run check
-    hook-tests:
-      priority: 3
-      glob:
-        - "home/cli/claude/hooks/*"
-        - "home/cli/claude/statusline-command.sh"
-        - "home/cli/claude/claude-launcher.sh"
-      run: ./home/cli/claude/hooks/run-tests.sh
 
 commit-msg:
   commands:

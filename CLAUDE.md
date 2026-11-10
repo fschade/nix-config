@@ -39,15 +39,12 @@ when it needs siblings: several modules that read better split
   the gate skips them.
 - Vendored files carry a `vendored` marker in their first five lines and keep
   their LICENSE. The shell gate skips them, they are upstream's to lint.
-- A change to a claude guard hook or the statusline ships with its cases in
-  `home/cli/claude/hooks/run-tests.sh`.
 
 ## Gates
 
 `mise run check`: alejandra, deadnix, statix, shellcheck, a swift parse check,
-gitleaks over both the tree and the history. `mise run claude-hooks-test` is the
-hook suite. lefthook runs check on commit with `CHECK_SKIP_HOOK_TESTS=1` and the
-suite only when hook or statusline files are staged; `mise run fmt` formats.
+gitleaks over both the tree and the history. lefthook runs check on commit;
+`mise run fmt` formats.
 
 ## Careful with
 

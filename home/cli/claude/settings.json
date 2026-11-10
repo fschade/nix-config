@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "opus[1m]",
+  "model": "opus",
   "effortLevel": "medium",
   "autoCompactWindow": 200000,
   "enableArtifact": false,
@@ -33,71 +33,80 @@
   "worktree": {
     "baseRef": "head"
   },
-  "enableAllProjectMcpServers": false,
-  "lspServers": {
-    "sourcekit-lsp": {
-      "command": "sourcekit-lsp",
-      "extensionToLanguage": {
-        ".swift": "swift"
-      }
-    }
-  },
   "env": {
     "DISABLE_TELEMETRY": "1",
     "DISABLE_ERROR_REPORTING": "1",
-    "DISABLE_AUTOUPDATER": "1",
     "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1",
-    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet",
+    "NODE_USE_ENV_PROXY": "1"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cc-safety-net hook --coding-cli"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/secret-guard",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/herdr-agent-state.sh session",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "best-claude-hud"
   },
   "sandbox": {
     "enabled": true,
-    "failIfUnavailable": true,
-    "autoAllowBashIfSandboxed": false,
     "allowUnsandboxedCommands": false,
-    "excludedCommands": [
-      "gh pr view *",
-      "gh pr list *",
-      "gh pr diff *",
-      "gh pr checks *",
-      "gh issue view *",
-      "gh issue list *",
-      "gh run view *",
-      "gh run list *",
-      "gh workflow run *",
-      "gh run rerun *"
-    ],
     "filesystem": {
       "allowWrite": [
         "~/.cache",
-        "~/Library/Caches"
-      ],
-      "denyWrite": [
-        "~/**/.claude/outbound-hosts",
-        "~/**/.claude/ssh-hosts"
+        "~/Library/Caches",
+        "~/go/pkg"
       ],
       "denyRead": [
         "~/**/.env",
-        "~/**/.env.*",
-        "~/**/id_rsa",
-        "~/**/id_ecdsa",
-        "~/**/id_ed25519",
-        "~/**/credentials.json",
-        "~/**/*.pem",
-        "~/**/*.key",
-        "~/**/.pgpass"
+        "~/**/.env.*"
       ],
       "allowRead": [
-        "~/**/.env.dist",
         "~/**/.env.example",
+        "~/**/.env.dist",
         "~/**/.env.sample",
-        "~/**/.env.template",
-        "~/**/*cert.pem",
-        "~/**/ca.pem"
+        "~/**/.env.template"
       ]
     },
     "network": {
-      "strictAllowlist": true,
       "allowLocalBinding": true,
+      "allowMachLookup": [
+        "com.apple.trustd.agent"
+      ],
+      "allowUnixSockets": [
+        "/nix/var/nix/daemon-socket/socket",
+        "/private/var/run/nix-daemon.socket"
+      ],
       "allowedDomains": [
         "localhost",
         "*.localhost",
@@ -114,215 +123,42 @@
         "registry.npmjs.org",
         "pypi.org",
         "files.pythonhosted.org",
-        "crates.io",
-        "index.crates.io",
-        "static.crates.io",
         "proxy.golang.org",
         "sum.golang.org",
-        "cache.nixos.org"
-      ]
-    },
-    "credentials": {
-      "files": [
-        {"path": "~/.ssh", "mode": "deny"},
-        {"path": "~/.aws", "mode": "deny"},
-        {"path": "~/.config/gh", "mode": "deny"},
-        {"path": "~/.netrc", "mode": "deny"},
-        {"path": "~/.git-credentials", "mode": "deny"},
-        {"path": "~/.npmrc", "mode": "deny"},
-        {"path": "~/.docker/config.json", "mode": "deny"},
-        {"path": "~/.kube", "mode": "deny"},
-        {"path": "~/.gnupg", "mode": "deny"},
-        {"path": "~/.config/sops", "mode": "deny"},
-        {"path": "~/Library/Keychains", "mode": "deny"}
-      ],
-      "envVars": [
-        {"name": "GH_TOKEN", "mode": "deny"},
-        {"name": "GITHUB_TOKEN", "mode": "deny"},
-        {"name": "NPM_TOKEN", "mode": "deny"},
-        {"name": "SSH_AUTH_SOCK", "mode": "deny"}
+        "cache.nixos.org",
+        "context7.com"
       ]
     }
   },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/bash-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "WebFetch",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/webfetch-guard.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/test-guard.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/cc-safety-net hook --coding-cli"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "rtk hook claude"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/audit-log.sh"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/herdr-agent-state.sh session",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/stop-recheck.sh"
-          }
-        ]
-      }
-    ]
-  },
-  "statusLine": {
-    "type": "command",
-    "command": "sh ~/.claude/statusline-command.sh"
-  },
   "permissions": {
     "allow": [
-      "Bash(git status)",
-      "Bash(git status *)",
-      "Bash(git log)",
-      "Bash(git log *)",
-      "Bash(git diff)",
-      "Bash(git diff *)",
-      "Bash(git show)",
-      "Bash(git show *)",
-      "Bash(git blame *)",
-      "Bash(git branch)",
-      "Bash(git branch -a)",
-      "Bash(git branch --show-current)",
-      "Bash(git remote -v)",
-      "Bash(git stash list)",
-      "Bash(git worktree list)",
-      "Bash(ls)",
-      "Bash(ls *)",
-      "Bash(find *)",
-      "Bash(grep *)",
       "Bash(rg *)",
-      "Bash(cat *)",
-      "Bash(head *)",
-      "Bash(tail *)",
-      "Bash(wc *)",
       "Bash(jq *)",
-      "Bash(nix flake check)",
-      "Bash(nix flake check *)",
-      "Bash(nix flake show)",
-      "Bash(nix flake show *)",
-      "Bash(nix flake metadata)",
-      "Bash(mise tasks)",
       "Bash(mise tasks *)",
-      "Bash(mise ls)"
-    ],
-    "ask": [
-      "Bash(ssh *)",
-      "Bash(autossh *)",
-      "Bash(mosh *)",
-      "Bash(scp *)",
-      "Bash(sftp *)",
-      "Bash(rsync *)"
+      "Bash(mise ls *)"
     ],
     "deny": [
-      "Bash(git push)",
       "Bash(git push *)",
       "Bash(sudo *)",
-      "Bash(mkfs *)",
-      "mcp__claude-in-chrome__form_input",
-      "mcp__claude-in-chrome__file_upload",
-      "mcp__claude-in-chrome__upload_image",
-      "mcp__claude-in-chrome__javascript_tool",
-      "mcp__idea__execute_terminal_command",
-      "mcp__idea__execute_run_configuration",
-      "mcp__idea__execute_sql_query",
-      "mcp__idea__execute_code_on_kernel",
-      "mcp__idea__run_notebook_cell",
-      "mcp__idea__xdebug_evaluate_expression",
-      "mcp__idea__run_inspection_kts",
-      "mcp__idea__invoke_ide_action",
-      "mcp__idea__execute_tool",
-      "Bash(ssh *ProxyCommand*)",
-      "Bash(ssh *LocalCommand*)",
-      "Bash(ssh * -F*)",
-      "Bash(autossh *ProxyCommand*)",
-      "Bash(autossh *LocalCommand*)",
-      "Bash(autossh * -F*)",
-      "Bash(sftp *ProxyCommand*)",
-      "Bash(sftp * -F*)",
-      "Bash(scp *ProxyCommand*)",
-      "Bash(scp -F*)",
-      "Bash(scp * -F*)",
-      "Bash(rsync *ProxyCommand*)",
-      "Bash(rsync -e*)",
-      "Bash(rsync * -e*)",
-      "Bash(rsync --rsh*)",
-      "Bash(rsync * --rsh*)",
-      "Read(**/credentials.json)",
-      "Read(**/*.key)",
-      "Read(**/.pgpass)",
+      "Read(~/**/credentials.json)",
+      "Read(~/**/.pgpass)",
+      "Read(~/**/*.agekey)",
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.config/sops/**)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.git-credentials)",
+      "Read(~/.netrc)",
+      "Read(~/.npmrc)",
+      "Read(~/Library/Keychains/**)",
+      "Edit(~/.ssh/**)",
       "Edit(~/.claude/settings.json)",
       "Edit(~/.claude/CLAUDE.md)",
-      "Edit(~/.claude/statusline-command.sh)",
       "Edit(~/.cc-safety-net/**)",
-      "Edit(~/.agents/**)",
-      "Edit(~/.claude/skills/**)",
-      "Edit(~/.claude/agents/**)",
-      "Edit(~/.claude/commands/**)",
-      "Edit(~/.claude/plugins/**)",
-      "Edit(**/.claude/ssh-hosts)",
-      "Edit(**/.claude/outbound-hosts)",
-      "Edit(**/.claude/settings.json)",
-      "Edit(**/.claude/settings.local.json)"
+      "Edit(**/.claude/settings*.json)"
     ],
     "disableBypassPermissionsMode": "disable"
   }

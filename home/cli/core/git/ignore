@@ -19,8 +19,6 @@
 
 # AI / agent tooling: local junk, never belongs in a repo
 .claude/settings.local.json
-.claude/outbound-hosts
-.claude/ssh-hosts
 .claude/worktrees/
 CLAUDE.local.md
 .egm/

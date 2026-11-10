@@ -1,9 +1,9 @@
 % ai, docs, claude, workflow
 
-# Read a doc: workflow (which step in which order), hooks (what the guards block)
+# Read a doc: workflow (which step in which order)
 glow -p <doc>
 
-$ doc: printf '%s\t%s\n' workflow ~/.claude/rules/workflow.md hooks ~/.claude/hooks/README.md --- --column 2 --delimiter '\t' --prevent-extra --preview 'glow -s dark -w "$FZF_PREVIEW_COLUMNS" {2}'
+$ doc: printf '%s\t%s\n' workflow ~/.claude/rules/workflow.md --- --column 2 --delimiter '\t' --prevent-extra --preview 'glow -s dark -w "$FZF_PREVIEW_COLUMNS" {2}'
 
 % ai, guards, claude
 
@@ -15,20 +15,3 @@ cc-safety-net logs
 
 # cc-safety-net denials that look like false positives
 cc-safety-net logs --suspect
-
-# Infra mutations claude ran, newest last
-tail -n 20 ~/.claude/logs/mutations.jsonl | jq .
-
-# Regression suite for the guard hooks (from the nix-config checkout)
-mise run claude-hooks-test
-
-% ai, config, claude
-
-# Headless probes of the deployed claude config, costs a few tokens (from the nix-config checkout)
-mise run claude-smoke
-
-# Tokens rtk saved by compacting command output
-rtk gain
-
-# Hosts this project lets claude reach (http writes, ssh)
-head .claude/outbound-hosts .claude/ssh-hosts
