@@ -25,7 +25,7 @@ raw = true
 run = "swift ./tools/web-app/web-app.swift"
 
 [tasks.check]
-description = "Run the static gates (nix, shell, swift, secrets, hooks) in check mode"
+description = "Run the static gates (nix, shell, swift, secrets) in check mode"
 run = "./scripts/check.sh"
 
 [tasks.fmt]
