@@ -43,7 +43,7 @@ when it needs siblings: several modules that read better split
 ## Gates
 
 `mise run check`: alejandra, deadnix, statix, shellcheck, a swift parse check,
-gitleaks over both the tree and the history. lefthook runs check on commit;
+gitleaks over unstaged, staged and the history. lefthook runs check on commit;
 `mise run fmt` formats.
 
 ## Careful with

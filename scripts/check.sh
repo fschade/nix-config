@@ -40,5 +40,7 @@ if command -v swiftc >/dev/null 2>&1; then
   done < <(git ls-files --cached --others --exclude-standard 'tools/web-app/*.swift')
 fi
 
-gitleaks dir . --no-banner --log-level warn
+# git modes, not `dir`: dir walks ignored files too and errors on unreadable ones
+gitleaks git . --pre-commit --no-banner --log-level warn
+gitleaks git . --pre-commit --staged --no-banner --log-level warn
 gitleaks git . --no-banner --log-level warn
