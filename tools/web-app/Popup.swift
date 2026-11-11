@@ -54,7 +54,10 @@ extension AppDelegate {
                  windowFeatures: WKWindowFeatures) -> WKWebView? {
         let url = navigationAction.request.url
         if externalLinksInBrowser, let url, let host = url.host, !isAppHost(host) {
-            NSWorkspace.shared.open(url)
+            // any frame can window.open, any other scheme would launch its handler unprompted
+            if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                NSWorkspace.shared.open(url)
+            }
             return nil
         }
         if navigationAction.navigationType == .linkActivated, let url {

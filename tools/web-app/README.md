@@ -44,7 +44,7 @@ merges over the manifest (scalars override, `links`/`inject`/`buttons` append).
 | `buttons` | | `{ "name", "label", "symbol"?, "symbolOn"?, "js"? or "jsFile"?, "key"? }`. `symbolOn` makes it a toggle, the scripts last expression is the state. `key` lowercase = ⌘, uppercase = ⌘⇧. |
 | `allowSelfSignedCerts` | | accept invalid TLS, app hosts only (default off) |
 | `keepRunningWhenClosed` | | closing the window hides it (default on) |
-| `openExternalLinksInBrowser` | | off-domain clicks go to the browser (default on) |
+| `openExternalLinksInBrowser` | | off-domain http(s) clicks go to the browser, other schemes are dropped (default on) |
 
 `custom/web-apps/example/manifest.jsonc.example` is a commented starting point.
 A site shipping a PWA manifest maps over: `start_url` to `url`, `id` to

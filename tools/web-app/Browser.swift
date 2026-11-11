@@ -28,7 +28,10 @@ extension AppDelegate {
         }
         if externalLinksInBrowser, navigationAction.navigationType == .linkActivated,
            let url = navigationAction.request.url, url.host != nil, !isAppHost(url.host) {
-            NSWorkspace.shared.open(url)
+            // web links only: smb, vnc or an app scheme would launch its native handler with page-chosen arguments
+            if let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+                NSWorkspace.shared.open(url)
+            }
             decisionHandler(.cancel)
             return
         }
