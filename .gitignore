@@ -14,7 +14,7 @@ dist/
 .build/
 .swiftpm/
 
-# direnv per-dir state. the layout hook relocates it into the cache on this
+# direnv per-dir state. the layout hook relocates it into ~/.local/state on this
 # machine, but a fresh checkout without that hook creates it in the project, so
 # it belongs here and not only in a global gitignore.
 .direnv/

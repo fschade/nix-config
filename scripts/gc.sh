@@ -16,17 +16,18 @@ state() {
   printf '%-6s %s profile generations, %s free\n' "$1" "$generations" "$free"
 }
 
-layouts="${XDG_CACHE_HOME:-$HOME/.cache}/direnv/layouts"
+layouts="${XDG_STATE_HOME:-$HOME/.local/state}/direnv/layouts"
 if [ -d "$layouts" ]; then
   stale=0
-  while IFS= read -r profile; do
-    dir=$(dirname "$profile")
+  # NUL-separated: a newline in a project path would otherwise split into a relative path for rm
+  while IFS= read -r -d '' profile; do
+    dir=${profile%/*}
     project="/${dir#"$layouts"/}"
     if [ ! -d "$project" ]; then
-      rm -rf "$dir"
+      rm -rf -- "$dir"
       stale=$((stale + 1))
     fi
-  done < <(find "$layouts" -name 'flake-profile-*' ! -name '*.rc')
+  done < <(find "$layouts" -name 'flake-profile-*' ! -name '*.rc' -print0)
   [ "$stale" -gt 0 ] && printf 'dropped %s direnv layout(s) whose project is gone\n\n' "$stale"
 fi
 

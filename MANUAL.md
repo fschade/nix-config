@@ -23,6 +23,13 @@ an unmanaged `rc` next to the managed `config.yaml`, pnpm 11 never reads it:
 
     rm ~/.config/pnpm/rc
 
+## old direnv layouts (one-time cleanup)
+nix-direnv keeps its layouts in `~/.local/state/direnv/layouts` now. the old copy
+in `~/.cache` still pins devshells as gc roots. not a plain `rm -rf`: the sandbox
+can write `~/.cache` and plant a symlink on the way, find does not follow it:
+
+    find ~/.cache -maxdepth 2 -path ~/.cache/direnv/layouts -type d -execdir rm -rf {} +
+
 ## keyboard shortcuts (one-time cleanup)
 `com.apple.symbolichotkeys` holds only key 64 (spotlight), the rest is factory.
 the switch merges with `-dict-add` and brings nothing back. aerospace wants the
