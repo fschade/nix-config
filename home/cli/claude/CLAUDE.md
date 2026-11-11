@@ -76,8 +76,10 @@ Every project. A project's CLAUDE.md adds or overrides, except the hard limits.
   the merge. Next to the repo is where mine land.
 - Stage by naming paths, never `git add -A` or `.`. A bare `git add` only when
   a tool needs it (nix sees tracked files only), and say so.
-- Conventional commits, lowercase, no trailing period, subject only; a body
-  only for a why the diff doesn't show. A repo's own convention wins.
+- Conventional commits, lowercase, no trailing period, subject only, at most
+  72 characters; a body only for a why the diff doesn't show. Merges too: a
+  merge command handed to me carries `-m "<type>: ..."`, git's default
+  message fails the commit-msg hook. A repo's own convention wins.
 - No AI attribution, no trailers.
 - Plain words: no critical, crucial, essential, significant, comprehensive,
   robust, elegant.
