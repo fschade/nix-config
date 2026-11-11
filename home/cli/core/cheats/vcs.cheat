@@ -29,8 +29,9 @@ git rev-parse --abbrev-ref '@{push}'
 git push -u <remote> HEAD
 
 ; branch interpolates $remote, so it only resolves after the remote pick
+; navi pastes values raw into the shell and remotes pick their branch names, hence --map
 $ remote: git remote
-$ branch: git branch --remotes --list "$remote/*" --format '%(refname:lstrip=3)' | grep -v '^HEAD$'
+$ branch: git branch --remotes --list "$remote/*" --format '%(refname:lstrip=3)' | grep -v '^HEAD$' --- --map 'IFS= read -r v; printf %q "$v"'
 
 % vcs, git, branches
 
@@ -58,5 +59,5 @@ git branch -m <local> <type>/<name>
 # Lefthook pre-push gate for the convention, add to a project's lefthook.yml
 printf 'pre-push:\n  commands:\n    branch-name:\n      run: git branches --check\n'
 
-$ local: git for-each-ref --format '%(refname:short)' refs/heads/
+$ local: git for-each-ref --format '%(refname:short)' refs/heads/ --- --map 'IFS= read -r v; printf %q "$v"'
 $ type: printf 'feat\nfix\nchore\ndocs\nrefactor\ntest\nci\nrelease\nhotfix\n'
