@@ -390,22 +390,6 @@
         "type": "github"
       }
     },
-    "plugin-context-mode": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1794280997,
-        "narHash": "sha256-4o9lYJiGTpraS5a0sGXa0X6Ga8ZbbgPZxIl+a6rWwwI=",
-        "owner": "mksglu",
-        "repo": "context-mode",
-        "rev": "9cd90eac190fb420e5a74aa8d0ae7513b7d728d2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "mksglu",
-        "repo": "context-mode",
-        "type": "github"
-      }
-    },
     "plugin-egm": {
       "flake": false,
       "locked": {
@@ -457,7 +441,6 @@
         "nix-index-database": "nix-index-database",
         "nixpkgs": "nixpkgs",
         "nixpkgs-master": "nixpkgs-master",
-        "plugin-context-mode": "plugin-context-mode",
         "plugin-egm": "plugin-egm",
         "plugins-official": "plugins-official"
       }

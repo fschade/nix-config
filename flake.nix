@@ -37,12 +37,6 @@
       flake = false;
     };
 
-    # borrowed with thanks from github.com/mksglu/context-mode (Elastic-2.0)
-    plugin-context-mode = {
-      url = "github:mksglu/context-mode";
-      flake = false;
-    };
-
     # borrowed with thanks from github.com/anthropics/claude-plugins-official (Apache-2.0)
     plugins-official = {
       url = "github:anthropics/claude-plugins-official";

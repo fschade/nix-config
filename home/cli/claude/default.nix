@@ -48,14 +48,6 @@
     ln -s ${secretGuard}/bin/secret-guard $out/secret-guard
   '';
 
-  # upstream ships the bundled plugin, it calls bare `node` and needs >= 24.15
-  contextMode = pkgs.runCommand "context-mode-plugin" {} ''
-    cp -r ${inputs.plugin-context-mode}/plugins/claude-code $out
-    chmod -R u+w $out
-    substituteInPlace $out/.claude-plugin/plugin.json $out/hooks/claude-code.json \
-      --replace-fail '"node' '"${pkgs.nodejs}/bin/node'
-  '';
-
   # lspServers only load from a plugin, not from settings.json
   lsp = pkgs.runCommand "lsp-plugin" {} ''
     mkdir -p $out/.claude-plugin
@@ -118,7 +110,6 @@ in {
   # loads the plugins in place from the store, a marketplace install would need a writable ~/.claude/plugins
   home.sessionVariables.CLAUDE_CODE_PLUGIN_DIRS = lib.concatStringsSep ":" [
     "${inputs.plugin-egm}/distributions/claude"
-    contextMode
     lsp
     context7
     "${inputs.plugins-official}/plugins/claude-security"
