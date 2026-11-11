@@ -19,10 +19,17 @@
     exec ${pkgs.nodejs}/bin/node ${inputs.cc-safety-net}/dist/bin/cc-safety-net.js "$@"
   '';
 
+  # the hook runs unsandboxed, so it only runs git in the project's own repos
+  secretGuardSrc = pkgs.applyPatches {
+    name = "claude-secret-guard";
+    src = inputs.claude-secret-guard;
+    patches = [./secret-guard-trust.patch];
+  };
+
   # upstream skips the scan silently when a tool is missing from PATH, so pin them
   secretGuard = pkgs.writeShellScriptBin "secret-guard" ''
     export PATH=${lib.makeBinPath [pkgs.gitleaks pkgs.git pkgs.jq]}:$PATH
-    exec ${pkgs.bash}/bin/sh ${inputs.claude-secret-guard}/deny-secret-commit.sh "$@"
+    exec ${pkgs.bash}/bin/sh ${secretGuardSrc}/deny-secret-commit.sh "$@"
   '';
 
   # ultra has only the weekly limit, the hud shows only five_hour, so the weekly window takes its place
